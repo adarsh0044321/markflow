@@ -1,0 +1,671 @@
+package com.markflow.app.ui.scan
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.markflow.app.cv.PageChangeDetector
+import com.markflow.app.cv.ImageProcessor
+import com.markflow.app.data.repository.CopyRepository
+import com.markflow.app.data.repository.ScanRepository
+import com.markflow.app.domain.model.*
+import com.markflow.app.data.repository.SettingsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+import javax.inject.Inject
+
+@HiltViewModel
+class ScanViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val scanRepository: ScanRepository,
+    private val copyRepository: CopyRepository,
+    private val pageChangeDetector: PageChangeDetector,
+    private val settingsRepository: SettingsRepository,
+    private val imageProcessor: ImageProcessor
+) : ViewModel() {
+
+    private var isAutoCaptureEnabled = true
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.autoCaptureFlow.collect {
+                isAutoCaptureEnabled = it
+            }
+        }
+    }
+
+    private var latestFrame: Bitmap? = null
+
+    private val _scanState = MutableStateFlow(ScanState())
+    val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
+
+    enum class FilterMode {
+        ORIGINAL,
+        ENHANCED,
+        BINARIZED,
+        EXAM_MODE
+    }
+
+    data class StagingPage(
+        val id: String = UUID.randomUUID().toString(),
+        val rawImagePath: String,
+        val corners: ImageProcessor.CornerPoints,
+        val rotationDegrees: Float = 0f,
+        val filterMode: FilterMode = FilterMode.EXAM_MODE,
+        val quality: ImageProcessor.ScanQualityResult
+    )
+
+    data class DuplicateDialogData(
+        val pageId: Long,
+        val duplicateOfPageId: Long,
+        val confidence: Double
+    )
+
+    data class MissingPageDialogData(
+        val pageId: Long,
+        val expectedPageNumber: Int,
+        val detectedPageNumber: Int
+    )
+
+    data class CropState(
+        val pageIndex: Int,
+        val rawBitmap: Bitmap,
+        val corners: ImageProcessor.CornerPoints
+    )
+
+    private val _capturedPages = MutableStateFlow<List<StagingPage>>(emptyList())
+    val capturedPages: StateFlow<List<StagingPage>> = _capturedPages.asStateFlow()
+
+    private val _liveCorners = MutableStateFlow<ImageProcessor.CornerPoints?>(null)
+    val liveCorners: StateFlow<ImageProcessor.CornerPoints?> = _liveCorners.asStateFlow()
+
+    private val _liveCornersSize = MutableStateFlow<android.util.Size?>(null)
+    val liveCornersSize: StateFlow<android.util.Size?> = _liveCornersSize.asStateFlow()
+
+    private val _duplicateDialog = MutableStateFlow<DuplicateDialogData?>(null)
+    val duplicateDialog: StateFlow<DuplicateDialogData?> = _duplicateDialog.asStateFlow()
+
+    private val _missingPageDialog = MutableStateFlow<MissingPageDialogData?>(null)
+    val missingPageDialog: StateFlow<MissingPageDialogData?> = _missingPageDialog.asStateFlow()
+
+    private val _cropState = MutableStateFlow<CropState?>(null)
+    val cropState: StateFlow<CropState?> = _cropState.asStateFlow()
+
+    private val _activeReviewPageIndex = MutableStateFlow<Int?>(null)
+    val activeReviewPageIndex: StateFlow<Int?> = _activeReviewPageIndex.asStateFlow()
+
+    private val _showFinalizeProgress = MutableStateFlow(false)
+    val showFinalizeProgress: StateFlow<Boolean> = _showFinalizeProgress.asStateFlow()
+
+    private val _finalizeProgressMessage = MutableStateFlow("")
+    val finalizeProgressMessage: StateFlow<String> = _finalizeProgressMessage.asStateFlow()
+
+    private val _detectedMarks = MutableStateFlow<List<DetectedMark>>(emptyList())
+    val detectedMarks: StateFlow<List<DetectedMark>> = _detectedMarks.asStateFlow()
+
+    private val _markFeed = MutableStateFlow<List<MarkFeedItem>>(emptyList())
+    val markFeed: StateFlow<List<MarkFeedItem>> = _markFeed.asStateFlow()
+
+    private val _runningTotal = MutableStateFlow(0.0)
+    val runningTotal: StateFlow<Double> = _runningTotal.asStateFlow()
+
+    private val _pageCount = MutableStateFlow(0)
+    val pageCount: StateFlow<Int> = _pageCount.asStateFlow()
+
+    private val _statusMessages = MutableStateFlow<List<String>>(emptyList())
+    val statusMessages: StateFlow<List<String>> = _statusMessages.asStateFlow()
+
+    private val _isProcessing = MutableStateFlow(false)
+    val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
+
+    private val _pageDetectionState = MutableStateFlow(PageChangeDetector.PageState.STABLE)
+    val pageDetectionState: StateFlow<PageChangeDetector.PageState> = _pageDetectionState.asStateFlow()
+
+    private val _lastScanQuality = MutableStateFlow<String?>(null)
+    val lastScanQuality: StateFlow<String?> = _lastScanQuality.asStateFlow()
+
+    private val _tiltAngle = MutableStateFlow(0f)
+    val tiltAngle: StateFlow<Float> = _tiltAngle.asStateFlow()
+
+    fun updateTiltAngle(angle: Float) {
+        _tiltAngle.value = angle
+    }
+
+    private var currentCopyId: Long = 0
+    private var currentSessionId: Long = 0
+
+    /**
+     * Initialize the scan session.
+     */
+    fun initialize(sessionId: Long, copyId: Long) {
+        currentSessionId = sessionId
+        currentCopyId = copyId
+        scanRepository.resetPageDetection()
+        _lastScanQuality.value = null
+        _capturedPages.value = emptyList()
+        _activeReviewPageIndex.value = null
+        _pageCount.value = 0
+        _markFeed.value = emptyList()
+        _liveCorners.value = null
+        _liveCornersSize.value = null
+        _duplicateDialog.value = null
+        _missingPageDialog.value = null
+        _cropState.value = null
+
+        _scanState.value = ScanState(
+            isScanning = true,
+            currentCopyId = copyId
+        )
+
+        // Observe running total from database
+        viewModelScope.launch {
+            scanRepository.getRunningTotal(copyId).collect { total ->
+                _runningTotal.value = total
+            }
+        }
+
+        // Observe marks from database
+        viewModelScope.launch {
+            scanRepository.getMarksByCopy(copyId).collect { marks ->
+                _detectedMarks.value = marks
+            }
+        }
+
+        addStatusMessage("Scanner ready")
+    }
+
+    /**
+     * Process a camera frame for page change detection.
+     */
+    fun processFrame(frame: Bitmap) {
+        // Cache the latest frame for manual capture
+        synchronized(this) {
+            latestFrame?.recycle()
+            val config = frame.config ?: Bitmap.Config.ARGB_8888
+            latestFrame = frame.copy(config, true)
+        }
+
+        if (_isProcessing.value) return
+
+        // Update live corners flow on the analysis thread (realtime)
+        val corners = imageProcessor.detectPaperCorners(frame)
+        _liveCorners.value = corners
+        _liveCornersSize.value = android.util.Size(frame.width, frame.height)
+
+        val result = pageChangeDetector.processFrame(frame)
+
+        when (result.state) {
+            PageChangeDetector.PageState.CHANGING -> {
+                _pageDetectionState.value = result.state
+                _scanState.update { it.copy(
+                    isPageStable = false,
+                    isCapturing = false,
+                    statusMessage = "Page turning..."
+                )}
+            }
+            PageChangeDetector.PageState.STABILIZING -> {
+                _pageDetectionState.value = result.state
+                _scanState.update { it.copy(
+                    isPageStable = false,
+                    statusMessage = "Stabilizing..."
+                )}
+            }
+            PageChangeDetector.PageState.READY_TO_CAPTURE -> {
+                if (!_isProcessing.value && isAutoCaptureEnabled && _tiltAngle.value <= 10.0f) {
+                    if (corners.isHighConfidence) {
+                        _pageDetectionState.value = result.state
+                        captureAndProcess(frame)
+                    } else {
+                        // Keep stabilizing/waiting for alignment
+                        _pageDetectionState.value = PageChangeDetector.PageState.STABILIZING
+                        _scanState.update { it.copy(
+                            isPageStable = false,
+                            statusMessage = "Align sheet..."
+                        )}
+                    }
+                } else {
+                    _pageDetectionState.value = result.state
+                    if (_tiltAngle.value > 10.0f && isAutoCaptureEnabled) {
+                        _scanState.update { it.copy(
+                            isPageStable = false,
+                            statusMessage = "Hold phone flat..."
+                        )}
+                    }
+                }
+            }
+            PageChangeDetector.PageState.STABLE -> {
+                _pageDetectionState.value = result.state
+                _scanState.update { it.copy(
+                    isPageStable = true,
+                    statusMessage = "Stable"
+                )}
+            }
+        }
+    }
+
+    fun manualCapture() {
+        val frameToProcess = synchronized(this) {
+            val frame = latestFrame
+            val config = frame?.config ?: Bitmap.Config.ARGB_8888
+            frame?.copy(config, true)
+        }
+        if (frameToProcess != null) {
+            if (!_isProcessing.value) {
+                captureAndProcess(frameToProcess)
+            }
+        } else {
+            addStatusMessage("Camera not ready")
+        }
+    }
+
+    /**
+     * Capture and process a page image. Saves raw captured frame to temp file,
+     * detects corners, calculates quality, and pushes to review queue.
+     */
+    private fun captureAndProcess(bitmap: Bitmap) {
+        viewModelScope.launch(Dispatchers.Default) {
+            _isProcessing.value = true
+            _scanState.update { it.copy(
+                isCapturing = true,
+                isProcessing = true,
+                statusMessage = "Capturing page..."
+            )}
+
+            try {
+                // 1. Save raw frame to temporary cache file to prevent OOM
+                val rawPath = saveRawBitmapToTempFile(bitmap)
+                
+                // 2. Detect corners and run quality analysis on the raw capture
+                val corners = imageProcessor.detectPaperCorners(bitmap)
+                val quality = imageProcessor.calculateScanQuality(bitmap)
+
+                // 3. Create staging page
+                val stagingPage = StagingPage(
+                    rawImagePath = rawPath,
+                    corners = corners,
+                    quality = quality
+                )
+
+                // 4. Update captured list
+                _capturedPages.update { it + stagingPage }
+                val newPageCount = _capturedPages.value.size
+                _pageCount.value = newPageCount
+
+                addStatusMessage("Page $newPageCount captured (Quality: ${quality.score}%)")
+                _lastScanQuality.value = quality.rating
+
+                _scanState.update { it.copy(
+                    isCapturing = false,
+                    isProcessing = false,
+                    currentPageNumber = newPageCount,
+                    pagesScanned = newPageCount,
+                    statusMessage = "Page $newPageCount captured"
+                )}
+
+                // Update page change detector reference
+                pageChangeDetector.onPageCaptured(bitmap)
+
+                // If corners have low confidence, automatically open the manual crop editor immediately
+                if (!corners.isHighConfidence) {
+                    val rawBitmap = BitmapFactory.decodeFile(rawPath)
+                    if (rawBitmap != null) {
+                        _cropState.value = CropState(newPageCount - 1, rawBitmap, corners)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                addStatusMessage("Capture failed: ${e.message}")
+                _scanState.update { it.copy(
+                    isCapturing = false,
+                    isProcessing = false,
+                    statusMessage = "Capture failed"
+                )}
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
+
+    private fun saveRawBitmapToTempFile(bitmap: Bitmap): String {
+        val file = File(context.cacheDir, "raw_temp_${UUID.randomUUID()}.jpg")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        return file.absolutePath
+    }
+
+    fun rotateStagingPage(index: Int) {
+        _capturedPages.update { list ->
+            if (index in list.indices) {
+                val page = list[index]
+                val nextRot = (page.rotationDegrees + 90f) % 360f
+                list.mapIndexed { idx, p -> if (idx == index) p.copy(rotationDegrees = nextRot) else p }
+            } else list
+        }
+    }
+
+    fun updateStagingPageCorners(index: Int, corners: ImageProcessor.CornerPoints) {
+        _capturedPages.update { list ->
+            if (index in list.indices) {
+                val page = list[index]
+                // Recalculate scan quality for new corners
+                val rawBitmap = BitmapFactory.decodeFile(page.rawImagePath)
+                val quality = if (rawBitmap != null) {
+                    val warped = imageProcessor.cropAndWarpPerspective(rawBitmap, corners)
+                    val q = imageProcessor.calculateScanQuality(warped)
+                    warped.recycle()
+                    rawBitmap.recycle()
+                    q
+                } else {
+                    page.quality
+                }
+                list.mapIndexed { idx, p -> if (idx == index) p.copy(corners = corners, quality = quality) else p }
+            } else list
+        }
+    }
+
+    fun updateStagingPageFilter(index: Int, filter: FilterMode) {
+        _capturedPages.update { list ->
+            if (index in list.indices) {
+                list.mapIndexed { idx, p -> if (idx == index) p.copy(filterMode = filter) else p }
+            } else list
+        }
+    }
+
+    fun deleteStagingPage(index: Int) {
+        val list = _capturedPages.value
+        if (index in list.indices) {
+            val page = list[index]
+            try {
+                File(page.rawImagePath).delete()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            _capturedPages.update { current ->
+                val nextList = current.filterIndexed { idx, _ -> idx != index }
+                _pageCount.value = nextList.size
+                _scanState.update { it.copy(
+                    currentPageNumber = nextList.size,
+                    pagesScanned = nextList.size
+                )}
+                nextList
+            }
+            if (_activeReviewPageIndex.value == index) {
+                _activeReviewPageIndex.value = if (list.size <= 1) null else minOf(index, list.size - 2)
+            }
+        }
+    }
+
+    fun retakeStagingPage(index: Int) {
+        val list = _capturedPages.value
+        if (index in list.indices) {
+            deleteStagingPage(index)
+            _activeReviewPageIndex.value = null
+            addStatusMessage("Ready to retake page")
+        }
+    }
+
+    fun selectReviewPage(index: Int?) {
+        _activeReviewPageIndex.value = index
+    }
+
+    fun keepDuplicatePage() {
+        _duplicateDialog.value = null
+    }
+
+    fun mergeDuplicatePage(pageId: Long, duplicateOfPageId: Long) {
+        viewModelScope.launch {
+            scanRepository.mergeDuplicatePage(pageId, duplicateOfPageId)
+            _duplicateDialog.value = null
+        }
+    }
+
+    fun ignoreDuplicatePage(pageId: Long) {
+        viewModelScope.launch {
+            scanRepository.deletePage(pageId)
+            _duplicateDialog.value = null
+        }
+    }
+
+    fun continueMissingPage() {
+        _missingPageDialog.value = null
+    }
+
+    fun scanAgainMissingPage(pageId: Long) {
+        viewModelScope.launch {
+            scanRepository.deletePage(pageId)
+            _missingPageDialog.value = null
+        }
+    }
+
+    fun startCropAdjustment(index: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val page = _capturedPages.value.getOrNull(index) ?: return@launch
+            val bitmap = BitmapFactory.decodeFile(page.rawImagePath) ?: return@launch
+            _cropState.value = CropState(index, bitmap, page.corners)
+        }
+    }
+
+    fun confirmCrop(corners: ImageProcessor.CornerPoints) {
+        val state = _cropState.value ?: return
+        updateStagingPageCorners(state.pageIndex, corners)
+        _cropState.value = null
+        state.rawBitmap.recycle()
+    }
+
+    fun discardCrop() {
+        val state = _cropState.value ?: return
+        deleteStagingPage(state.pageIndex)
+        _cropState.value = null
+        state.rawBitmap.recycle()
+    }
+
+    fun finishScanning(onFinish: (Long, Boolean) -> Unit) {
+        finalizeSession(onFinish)
+    }
+
+    suspend fun getProcessedPreview(page: StagingPage, targetWidth: Int = 800): Bitmap = withContext(Dispatchers.IO) {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(page.rawImagePath, options)
+        
+        var scale = 1
+        while (options.outWidth / scale / 2 >= targetWidth) {
+            scale *= 2
+        }
+        
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = scale
+        }
+        val raw = BitmapFactory.decodeFile(page.rawImagePath, decodeOptions) ?: return@withContext Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        
+        val scaleX = raw.width.toFloat() / options.outWidth
+        val scaleY = raw.height.toFloat() / options.outHeight
+        val scaledCorners = ImageProcessor.CornerPoints(
+            topLeft = android.graphics.PointF(page.corners.topLeft.x * scaleX, page.corners.topLeft.y * scaleY),
+            topRight = android.graphics.PointF(page.corners.topRight.x * scaleX, page.corners.topRight.y * scaleY),
+            bottomLeft = android.graphics.PointF(page.corners.bottomLeft.x * scaleX, page.corners.bottomLeft.y * scaleY),
+            bottomRight = android.graphics.PointF(page.corners.bottomRight.x * scaleX, page.corners.bottomRight.y * scaleY),
+            isHighConfidence = page.corners.isHighConfidence
+        )
+        
+        var warped = imageProcessor.cropAndWarpPerspective(raw, scaledCorners)
+        raw.recycle()
+        
+        if (page.rotationDegrees != 0f) {
+            val rotated = imageProcessor.rotateBitmap(warped, page.rotationDegrees)
+            warped.recycle()
+            warped = rotated
+        }
+        
+        val filtered = when (page.filterMode) {
+            FilterMode.ORIGINAL -> warped
+            FilterMode.ENHANCED -> imageProcessor.enhanceDocumentReadability(warped)
+            FilterMode.BINARIZED -> imageProcessor.convertToHighContrast(warped)
+            FilterMode.EXAM_MODE -> imageProcessor.applyExamModeFilter(warped)
+        }
+        
+        if (warped != filtered) {
+            warped.recycle()
+        }
+        
+        return@withContext filtered
+    }
+
+    /**
+     * Commits all staging pages in batch to the repository (runs perspective warp, filters,
+     * saves to database, executes OCR, duplicate checks, and mark detection).
+     */
+    fun finalizeSession(onComplete: (Long, Boolean) -> Unit) {
+        val pagesToProcess = _capturedPages.value
+        if (pagesToProcess.isEmpty()) {
+            // No pages scanned, clean up copy and exit
+            viewModelScope.launch {
+                val copy = copyRepository.getCopy(currentCopyId)
+                if (copy != null) {
+                    copyRepository.deleteCopy(currentCopyId)
+                    copyRepository.recalculateSessionStats(currentSessionId)
+                }
+                onComplete(currentCopyId, false)
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _showFinalizeProgress.value = true
+            _isProcessing.value = true
+
+            try {
+                val finalCopyId = currentCopyId
+                
+                withContext(Dispatchers.Default) {
+                    for ((index, stagingPage) in pagesToProcess.withIndex()) {
+                        _finalizeProgressMessage.value = "Processing page ${index + 1} of ${pagesToProcess.size}..."
+                        
+                        // 1. Decode raw temp bitmap
+                        val rawBitmap = BitmapFactory.decodeFile(stagingPage.rawImagePath) ?: continue
+                        
+                        // 2. Perspective warp using staging corners
+                        var processed = imageProcessor.cropAndWarpPerspective(rawBitmap, stagingPage.corners)
+                        
+                        // 3. Rotate bitmap if needed
+                        if (stagingPage.rotationDegrees != 0f) {
+                            processed = imageProcessor.rotateBitmap(processed, stagingPage.rotationDegrees)
+                        }
+                        
+                        // 4. Apply selected filter
+                        val filtered = when (stagingPage.filterMode) {
+                            FilterMode.ORIGINAL -> processed
+                            FilterMode.ENHANCED -> imageProcessor.enhanceDocumentReadability(processed)
+                            FilterMode.BINARIZED -> imageProcessor.convertToHighContrast(processed)
+                            FilterMode.EXAM_MODE -> imageProcessor.applyExamModeFilter(processed)
+                        }
+                        
+                        if (processed != filtered) {
+                            processed.recycle()
+                        }
+
+                        // 5. Commit to repository/DB (passes isPreProcessed = true)
+                        val result = scanRepository.processCapture(filtered, finalCopyId, corners = null, isPreProcessed = true)
+
+                        // Clean up bitmaps
+                        filtered.recycle()
+                        rawBitmap.recycle()
+
+                        // Delete temp raw file
+                        try {
+                            File(stagingPage.rawImagePath).delete()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+
+                        // Suspends loop if duplicate is detected
+                        if (result.isDuplicate) {
+                            _duplicateDialog.value = DuplicateDialogData(
+                                pageId = result.pageId,
+                                duplicateOfPageId = result.duplicateOfPageId ?: 0L,
+                                confidence = result.duplicateConfidence
+                            )
+                            _duplicateDialog.first { it == null }
+                        }
+
+                        // Suspends loop if sequence is skipped
+                        if (result.isSequenceSkipped) {
+                            _missingPageDialog.value = MissingPageDialogData(
+                                pageId = result.pageId,
+                                expectedPageNumber = result.expectedPageNumber,
+                                detectedPageNumber = result.detectedPageNumber ?: result.expectedPageNumber
+                            )
+                            _missingPageDialog.first { it == null }
+                        }
+                    }
+                }
+
+                // 6. Complete copy totaling checks, set status to completed
+                scanRepository.finishCopy(finalCopyId)
+
+                _showFinalizeProgress.value = false
+                _isProcessing.value = false
+                onComplete(finalCopyId, true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _showFinalizeProgress.value = false
+                _isProcessing.value = false
+                addStatusMessage("Finalization failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Start scanning next copy in the same session.
+     */
+    fun startNextCopy(onReady: (Long) -> Unit) {
+        viewModelScope.launch {
+            scanRepository.finishCopy(currentCopyId)
+            val newCopyId = scanRepository.createCopy(currentSessionId)
+            currentCopyId = newCopyId
+            scanRepository.resetPageDetection()
+            _lastScanQuality.value = null
+            _capturedPages.value = emptyList()
+            _activeReviewPageIndex.value = null
+            _pageCount.value = 0
+            _markFeed.value = emptyList()
+            _statusMessages.value = emptyList()
+            _liveCorners.value = null
+
+            _scanState.value = ScanState(
+                isScanning = true,
+                currentCopyId = newCopyId
+            )
+            addStatusMessage("New copy started")
+            onReady(newCopyId)
+        }
+    }
+
+    private fun addStatusMessage(message: String) {
+        _statusMessages.update { (it + message).takeLast(5) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        pageChangeDetector.reset()
+        // Clean up any remaining temp files in cache
+        _capturedPages.value.forEach { page ->
+            try {
+                File(page.rawImagePath).delete()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+        latestFrame?.recycle()
+    }
+}

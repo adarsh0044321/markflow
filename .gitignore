@@ -1,0 +1,33 @@
+# Built-in Gradle caches & wrapper
+.gradle/
+build/
+app/build/
+
+# Local configuration files
+local.properties
+
+# Local JDK and Gradle distributions used for build environment
+jdk-dist/
+jdk.zip
+gradle-dist/
+gradle.zip
+
+# Test files & temporary jars
+test.jar
+test_ipv4.jar
+TestConnection.java
+TestDownload.java
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Keystore files
+*.jks
+*.keystore
+
+# macOS & system files
+.DS_Store
+Thumbs.db

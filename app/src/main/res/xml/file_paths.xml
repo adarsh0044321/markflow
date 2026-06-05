@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Expose only the markflow_data directory inside filesDir -->
+    <files-path name="markflow_data" path="markflow_data/" />
+</paths>

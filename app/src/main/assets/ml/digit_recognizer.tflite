@@ -1,0 +1,3 @@
+// Placeholder for the TensorFlow Lite digit recognizer model.
+// The actual model should contain the MNIST digit recognition weights.
+// If this file fails to load or initialize, the application will fallback to OCR-only verification.
