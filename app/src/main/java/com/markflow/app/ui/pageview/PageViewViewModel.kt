@@ -10,6 +10,7 @@ import com.markflow.app.data.repository.CopyRepository
 import com.markflow.app.data.repository.ScanRepository
 import com.markflow.app.domain.model.DetectedMark
 import com.markflow.app.domain.model.Page
+import com.markflow.app.util.BitmapUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -219,6 +220,21 @@ class PageViewViewModel @Inject constructor(
                 val out = java.io.FileOutputStream(file)
                 mutableBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
                 out.close()
+
+                // Regenerate thumbnail if it exists to keep list views updated
+                page.value?.thumbnailPath?.let { thumbPath ->
+                    try {
+                        val thumbFile = java.io.File(thumbPath)
+                        val thumbnail = BitmapUtils.createThumbnail(mutableBitmap)
+                        val thumbOut = java.io.FileOutputStream(thumbFile)
+                        thumbnail.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, thumbOut)
+                        thumbOut.close()
+                        thumbnail.recycle()
+                    } catch (ex: Exception) {
+                        ex.printStackTrace()
+                    }
+                }
+
                 mutableBitmap.recycle()
                 
                 // Trigger state refresh

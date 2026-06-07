@@ -130,11 +130,12 @@ object BitmapUtils {
         }
 
         // Convert binary string to hex
-        return hash.toString().chunked(4).joinToString("") {
+        val result = hash.toString().chunked(4).joinToString("") {
             it.toInt(2).toString(16)
         }
 
         small.recycle()
+        return result
     }
 
     /**
