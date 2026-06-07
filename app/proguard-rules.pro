@@ -18,6 +18,23 @@
 -dontwarn org.apache.jcp.xml.dsig.internal.**
 -dontwarn org.bouncycastle.**
 
+# Additional optional or JVM-only dependencies transitively used by Apache POI & XMLBeans
+-dontwarn com.github.javaparser.**
+-dontwarn com.sun.org.apache.xml.internal.resolver.**
+-dontwarn de.rototor.pdfbox.graphics2d.**
+-dontwarn javax.imageio.**
+-dontwarn javax.swing.**
+-dontwarn javax.xml.crypto.**
+-dontwarn org.apache.maven.**
+-dontwarn org.apache.pdfbox.**
+-dontwarn org.apache.tools.ant.**
+-dontwarn org.apache.xml.security.**
+-dontwarn org.ietf.jgss.**
+-dontwarn org.w3c.dom.events.**
+-dontwarn org.w3c.dom.svg.**
+-dontwarn org.w3c.dom.traversal.**
+
+
 # Keep classes that may be accessed via reflection in POI and XMLBeans
 -keep class org.apache.poi.** { *; }
 -keep class org.apache.xmlbeans.** { *; }
