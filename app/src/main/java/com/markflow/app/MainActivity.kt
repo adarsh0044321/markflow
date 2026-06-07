@@ -111,7 +111,7 @@ fun PermissionScreen(onRequestPermission: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "CopySense AI uses your phone's camera to detect pages and automatically scan marks. Please grant camera access to get started.",
+            text = "MarkFlow uses your phone's camera to detect pages and automatically scan marks. Please grant camera access to get started.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

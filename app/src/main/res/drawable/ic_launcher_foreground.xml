@@ -17,7 +17,7 @@
         android:fillColor="#FFFFFF"
         android:pathData="M44,62 L36,54 L39,51 L44,56 L69,31 L72,34 Z" />
         
-    <!-- Red Accent Mark Circle representing CopySense -->
+    <!-- Red Accent Mark Circle representing MarkFlow -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#EF4444"
