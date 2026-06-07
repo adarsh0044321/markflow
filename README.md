@@ -1,134 +1,118 @@
 # MarkFlow 📄🖋️
 
-[![Android Build](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9-purple.svg)](https://kotlinlang.org)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](#license)
-[![OpenCV](https://img.shields.io/badge/OpenCV-4.x-orange.svg)](https://opencv.org)
-[![TFLite](https://img.shields.io/badge/ML-TensorFlow%20Lite-orange.svg)](https://tensorflow.org/lite)
+[![Release](https://img.shields.io/github/v/release/adarsh0044321/markflow?color=10B981&style=flat-square)](https://github.com/adarsh0044321/markflow/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/adarsh0044321/markflow/build-release.yml?branch=main&style=flat-square)](https://github.com/adarsh0044321/markflow/actions)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%28API%2029%2B%29-2563EB?style=flat-square)](https://developer.android.com)
+[![License](https://img.shields.io/badge/License-MIT-F59E0B?style=flat-square)](LICENSE)
 
-**MarkFlow** is an intelligent, document-processing-first Android application designed to streamline the grading, digitization, and verification workflow for evaluated academic answer sheets.
+MarkFlow is a professional-grade, document-processing-first Android application designed for evaluated answer sheet digitization, verification, grading, and reporting. 
 
-Unlike generic document scanning applications, MarkFlow acts as an end-to-end evaluation assistant. It leverages native computer vision (OpenCV) for real-time edge tracking and perspective correction, guides physical camera alignment using device accelerometers, utilizes on-device machine learning (ML Kit & TensorFlow Lite) for digit verification, and features an interactive overlay canvas that maps gestures to high-resolution bitmaps for direct grading annotation.
+Unlike generic camera scanner apps, MarkFlow acts as an end-to-end evaluation assistant. It uses native computer vision (OpenCV) to deskew pages, real-time device sensors to guide alignment, on-device machine learning (ML Kit & TensorFlow Lite) to verify digits, and interactive touch annotation to let teachers draw red ink checks directly onto digital sheets.
 
-<p align="center">
-  <img src="assets/design/markflow_logo_text.png" alt="MarkFlow Banner" width="600"/>
-</p>
+![MarkFlow Repository Banner](assets/design/markflow_banner.png)
 
 ---
 
-## Features
+## 🌟 Key Features
 
-- **Document Scanning & Deskewing**: Orchestrates CameraX preview feeds inside [ScanScreen.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ui/scan/ScanScreen.kt) to capture documents. The [ContourAnalyzer.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/ContourAnalyzer.kt) dynamically tracks paper boundaries and runs OpenCV perspective warping to output a flattened page layout.
-- **Red Ink Detection & Canvas Drawing**: Leverages native color processing in [RedInkFilter.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/RedInkFilter.kt) to isolate red pen corrections. Enables physical-to-digital gesture writing inside [PageViewScreen.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ui/pageview/PageViewScreen.kt), directly writing stroke markers onto high-resolution files.
-- **Blank Page & Duplicate Detection**: Employs [PageChangeDetector.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/PageChangeDetector.kt) and [DuplicateDetector.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/DuplicateDetector.kt) pipelines to identify blank regions, prevent double scans, and ensure complete answer sheet collation.
-- **OCR Extraction & Verification**: Utilizes [OcrProcessor.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ml/OcrProcessor.kt) (Google ML Kit) to parse structured layout grids and extract handwritten digits, feeding cropped regions to [DigitRecognizer.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ml/DigitRecognizer.kt) for on-device validation.
-- **Academic Record Digitization**: Saves and tracks detailed evaluation sessions, copies, and student marks in Room SQLite tables (defined in [MarkFlowDatabase.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/data/local/MarkFlowDatabase.kt)).
-- **PDF Export with cover sheets**: Dynamically compiles digital evaluations into comprehensive archives containing grading metrics, class averages, passing distributions, and cropped proof images via [ReportGenerator.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/util/ReportGenerator.kt).
-
----
-
-## Screenshots
-
-| 📱 **Main Dashboard** | 📸 **Document Capture** | ✏️ **Red Ink Annotation** | 📊 **Cohort Analytics** |
-| :---: | :---: | :---: | :---: |
-| <img src="assets/design/markflow_icon.png" width="160" alt="Home Dashboard"/> | <img src="assets/design/markflow_icon.png" width="160" alt="Document Capture"/> | <img src="assets/design/markflow_icon.png" width="160" alt="Red Ink Canvas"/> | <img src="assets/design/markflow_icon.png" width="160" alt="Analytics View"/> |
-| *Manage active grading sessions, import student lists, and trace cohort history* | *Warp-perspective capture guide with dynamic tilt sensors and automated torch control* | *Direct Compose Canvas writing to overlay grades, verify OCR, and circle answers* | *Dynamic dropdowns, grading bands, class passing ratios, and statistics* |
+*   **⚡ Document Scanning & Deskewing**: Automatic edge detection and perspective warping (`Imgproc.warpPerspective`) that flattens crumpled or angled sheets into perfect, rectangular documents.
+*   **🔴 Red Ink & Correction Detection**: Custom color-channel extraction masks that isolate and highlight teacher corrections, comments, and marks.
+*   **🔍 On-Device Digit OCR & Verification**: Runs Google ML Kit Text Recognition to segment score boxes, verified in real-time by a custom TensorFlow Lite neural network (`digit_recognizer.tflite`) to flag low-confidence reads for manual review.
+*   **📐 Spirit Level Camera Guide**: Leverages the physical accelerometer sensor to restrict automatic image capture if the device tilt exceeds `10°`, preventing perspective distortions.
+*   **📄 Cover Sheet & PDF Exporting**: Generates unified evaluation reports using iText PDF containing automated statistics (class averages, passing ratios, grading bands) followed by high-resolution evidence pages.
+*   **💾 Offline-First Storage**: Uses Android Room SQLite DB to maintain audit trails, evaluation sessions, page assets, and verified grades completely offline.
 
 ---
 
-## How It Works
+## 📸 Screenshots
+
+| Dashboard | Real-Time Camera Scan |
+|:---:|:---:|
+| ![Dashboard](assets/screenshots/dashboard.png) | ![Scanning Screen](assets/screenshots/scanning.png) |
+| **Evaluation Session Analytics** | **OCR Results & Marks Breakdown** |
+| ![Analytics Screen](assets/screenshots/analytics.png) | ![Results Screen](assets/screenshots/results.png) |
+
+---
+
+## ⚙️ How It Works (Evaluation Pipeline)
 
 ```mermaid
 graph TD
-    A[Camera Feed & Sensors] --> B[Contour Boundary Tracking]
-    B --> C[OpenCV Perspective Warp]
-    C --> D[Image Binarization & Cleaning]
-    D --> E[Google ML Kit OCR Grid Detection]
-    E --> F[TFLite Digit Verification]
-    F --> G[Teacher Annotation Canvas]
-    G --> H[Room Database Persist]
-    H --> I[iText PDF Cover & Reports]
+    A[Camera Focus & Spirit Level Guide] -->|Stable Frame Auto-Capture| B[Contour Identification & Quadrilateral Edge Detection]
+    B -->|OpenCV Perspective Warp| C[Deskewed Document Output]
+    C -->|Adaptive Thresholding & Shadow Cleanups| D[Flat High-Contrast Sheet]
+    D -->|Red Color Channel Masking| E[Red Ink Annotations isolated]
+    D -->|Google ML Kit OCR Parsing| F[Digit Segmentation & Bounding Boxes]
+    F -->|TFLite Neural Network Inference| G[Score Validation & Confidence Grading]
+    G -->|Store local entities| H[SQLite Database Caching]
+    H -->|Compile Report| I[PDF Export with Cover Page]
 ```
 
-1. **Capture & Edge Alignment**: The camera preview feed inside [ScanScreen.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ui/scan/ScanScreen.kt) monitors device sensor tilt angles. The [ContourAnalyzer.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/ContourAnalyzer.kt) tracks the physical boundary of the answer sheet, executing an OpenCV perspective warp once stable.
-2. **Adaptive Cleaning**: The warped document bitmap undergoes local binarization, shadow extraction, and background noise removal in [ImageProcessor.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/cv/ImageProcessor.kt) to maximize visibility.
-3. **On-Device OCR & ML Verification**: The cleaned image is processed by [OcrProcessor.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ml/OcrProcessor.kt) to index character locations. Extracted number grids are validated against a local TensorFlow Lite model via [DigitRecognizer.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ml/DigitRecognizer.kt) with validation confidence scores calculated by [ConfidenceCalculator.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ml/ConfidenceCalculator.kt).
-4. **Touch Drawing Coordinate Translation**: In [PageViewScreen.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/ui/pageview/PageViewScreen.kt), user inputs are mapped to pixel-perfect bitmap coordinates via [BitmapUtils.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/util/BitmapUtils.kt), committing teacher grade corrections directly into physical file structures using [FileUtils.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/util/FileUtils.kt).
-5. **Persistence & Export**: Evaluations are synchronized into SQLite tables via [MarkFlowDatabase.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/data/local/MarkFlowDatabase.kt). Finalized session metrics are exported into reports (PDF cover sheets, CSV, or Excel templates) using [ReportGenerator.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/util/ReportGenerator.kt).
+### Step-by-Step Flow:
+1.  **Sensor-Driven Capture**: The accelerometer controls a visual bubble overlay. Once aligned under `10°` tilt and resting on a flat surface, the light sensor checks ambient brightness (enabling torch if `<15 lux`) and auto-captures.
+2.  **Native Computer Vision Deskewing**: Grayscale reduction, Gaussian blur, and Canny edge detection map the largest quadrilateral contour. We solve perspective coefficients to warp the angled image into a flat document.
+3.  **Adaptive Image Cleaning**: Local threshold filters remove shadows, folds, and backgrounds, keeping teacher corrections and handwriting distinct.
+4.  **OCR & Neural Verification**: Google ML Kit identifies digits. The bounding regions are passed to a local TensorFlow Lite model to check the teacher's handwritten marks, scoring confidence levels.
+5.  **Offline Audit Trails & PDF Export**: Student scores are locally cached. The app compiles reports with cover sheets, cohort statistics, and high-fidelity page attachments.
 
 ---
 
-## Tech Stack
+## 🛠️ Technology Stack
 
-| Category | Technology | Usage in MarkFlow |
-| :--- | :--- | :--- |
-| **Core Runtime** | Kotlin (JDK 17) / Android SDK | Primary development framework, targeting Android API levels 29 to 35 |
-| **UI Framework** | Jetpack Compose (Material 3) | Modern declarative layouts, fluid navigation, and custom charts |
-| **Camera Platform** | Android CameraX | Multi-threaded image analysis, light sensing, and automated torch control |
-| **Computer Vision** | OpenCV Android SDK (Native C++) | Real-time boundary contour tracking, matrix transforms, and image warping |
-| **Machine Learning** | Google ML Kit OCR & TensorFlow Lite | High-speed text extraction grids and digit recognition validation |
-| **Local Storage** | Room DB (SQLite) | Persistent copies, scores, session statistics, and validation audit logs |
-| **Dependency Injection** | Dagger Hilt | Decentralized architecture decoupling, modular repositories, and view models |
-| **Export Engines** | iText PDF (v5.x), Apache POI & OpenCSV | Multi-format grading reports, cover generation, and data spreadsheets |
+*   **Language**: Kotlin (JDK 17)
+*   **UI Framework**: Jetpack Compose (Material 3)
+*   **Dependency Injection**: Hilt (Dagger)
+*   **Database**: Room DB (SQLite)
+*   **Camera System**: CameraX API
+*   **Native Libraries**: OpenCV SDK (Android port)
+*   **Machine Learning**: Google ML Kit OCR & custom TensorFlow Lite Interpreter
+*   **Reporting APIs**: iText PDF (v5.x), OpenCSV
 
 ---
 
-## Installation
+## 🚀 Installation & Building
 
-### Prerequisites
-* Android Studio (Koala/Ladybug or newer)
-* Android SDK (API levels 29 to 35 configured)
-* Native C++ developer components (CMake & NDK configured in Android Studio)
-* JDK 17
+### Requirements
+*   Android Studio Koala/Ladybug or newer
+*   Android SDK (API 29 to 35 supported)
+*   Android NDK & CMake configured for C++ JNI compilation
 
 ### Gradle Build Instructions
-Compile the project from the root folder:
+Clone the repository and compile using the Gradle wrapper:
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/MarkFlow.git
-cd MarkFlow
+git clone https://github.com/adarsh0044321/markflow.git
+cd markflow
 
-# Build Debug APK (Ideal for local testing)
+# Build Debug APK
 ./gradlew assembleDebug
 
-# Build Unsigned Release APK (Minified and optimized production build)
+# Build Production Release APK (Minified and Optimized)
 ./gradlew assembleRelease
 ```
-
-Once compiled successfully, output files will be written to:
-* **Debug APK**: `app/build/outputs/apk/debug/app-debug.apk`
-* **Release APK**: `app/build/outputs/apk/release/app-release-unsigned.apk`
-
----
-
-## Roadmap
-
-- **AI Handwriting Recognition**: Upgrade existing TensorFlow Lite models to recognize cursive handwriting and complex math symbols on handwritten papers.
-- **Multi-Page Processing**: Implement automatic collation, sorting, and stitching of multi-page student answer scripts under a single index.
-- **Teacher Dashboard**: Build a web-based portal to sync evaluation records and manage grades across cohorts.
-- **Cloud Sync**: Secure cloud-backup integration to synchronize grading status, metrics, and digital copies across devices.
+The compiled packages will be exported to:
+*   **Debug APK**: `app/build/outputs/apk/debug/app-debug.apk`
+*   **Release APK**: `app/build/outputs/apk/release/app-release-unsigned.apk`
 
 ---
 
-## Contributing
+## 📅 Roadmap
 
-We welcome contributions to MarkFlow! Follow these guidelines to update and extend code:
-
-### 1. Database Schema Changes (Room)
-The database definitions reside in `com.markflow.app.data.local/`.
-1. Modify/Create Entity: Update or add a new file in `entity/` (e.g. [CopyEntity.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/data/local/entity/CopyEntity.kt)).
-2. Register in Database: Open [MarkFlowDatabase.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/data/local/MarkFlowDatabase.kt), add your entity class, and increment the database version.
-3. Write Migrations: Add schema migration logic in `MarkFlowDatabase.kt` and register it in the builder inside [AppModule.kt](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/src/main/java/com/markflow/app/di/AppModule.kt). Room exports schema JSONs to `app/schemas/` upon compilation. Commit these JSON files to git.
-
-### 2. Updating Dependencies
-All libraries are declared in the version catalog: [libs.versions.toml](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/gradle/libs.versions.toml). Add updates under `[versions]` and libraries under `[libraries]`, and link them in the target module's `build.gradle.kts`.
-
-### 3. Minification & Optimization (ProGuard / R8)
-If external dependencies require special handling under R8 compilation, update rules inside [proguard-rules.pro](file:///C:/Users/JAISINGH/.gemini/antigravity-ide/scratch/MarkFlow/app/proguard-rules.pro).
+We are continuously evolving the evaluation assistant. See [ROADMAP.md](ROADMAP.md) for full milestones.
+-   [ ] **v1.1**: Improved lighting-robust contour tracking and higher OCR resolution matrices.
+-   [ ] **v1.2**: Batch evaluation folder scanning (multi-page document packages).
+-   [ ] **v2.0**: Advanced handwriting recognition models for evaluation sheet notes.
+-   [ ] **v3.0**: Cloud sync options and centralized administrative teacher dashboard.
 
 ---
 
-## License
+## 🤝 Contributing
 
-This project is licensed under the Apache License 2.0. See the `LICENSE` file for details.
+Contributions are welcome! Please fork the repository, create a feature branch, and submit a Pull Request. Ensure that new Compose screens conform to MVVM architectures and that native JNI changes are fully verified using local test suites.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for more details.

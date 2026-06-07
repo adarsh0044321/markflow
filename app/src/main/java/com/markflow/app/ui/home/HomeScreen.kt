@@ -1,9 +1,12 @@
 package com.markflow.app.ui.home
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.painterResource
+import com.markflow.app.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -54,7 +57,15 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.markflow_icon),
+                            contentDescription = "MarkFlow Logo",
+                            modifier = Modifier.size(36.dp)
+                        )
                         Text(
                             text = "MarkFlow",
                             style = MaterialTheme.typography.headlineMedium,
