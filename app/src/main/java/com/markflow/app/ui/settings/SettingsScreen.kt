@@ -16,6 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.focus.onFocusChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -220,6 +223,15 @@ private fun SettingsTextField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
+    var localText by remember { mutableStateOf(value) }
+    var isFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(value) {
+        if (!isFocused && localText != value) {
+            localText = value
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -234,10 +246,32 @@ private fun SettingsTextField(
             Spacer(modifier = Modifier.width(14.dp))
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.width(80.dp),
+                value = localText,
+                onValueChange = { newValue ->
+                    val filteredValue = newValue.filter { it.isDigit() }
+                    localText = filteredValue
+                    onValueChange(filteredValue)
+                },
+                modifier = Modifier
+                    .width(80.dp)
+                    .onFocusChanged { focusState ->
+                        isFocused = focusState.isFocused
+                        if (!focusState.isFocused) {
+                            if (localText.isEmpty()) {
+                                val fallback = when {
+                                    title.contains("Sensitivity", ignoreCase = true) -> "50"
+                                    title.contains("Pass", ignoreCase = true) -> "33"
+                                    else -> "100"
+                                }
+                                localText = fallback
+                                onValueChange(fallback)
+                            }
+                        }
+                    },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                ),
                 textStyle = MaterialTheme.typography.bodyMedium
             )
         }

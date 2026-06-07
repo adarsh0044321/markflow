@@ -76,6 +76,8 @@ fun ScanScreen(
     val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
     val pageDetectionState by viewModel.pageDetectionState.collectAsStateWithLifecycle()
     val lastScanQuality by viewModel.lastScanQuality.collectAsStateWithLifecycle()
+    val showFinalizeProgress by viewModel.showFinalizeProgress.collectAsStateWithLifecycle()
+    val finalizeProgressMessage by viewModel.finalizeProgressMessage.collectAsStateWithLifecycle()
 
     val duplicateDialogState by viewModel.duplicateDialog.collectAsStateWithLifecycle()
     val missingPageDialogState by viewModel.missingPageDialog.collectAsStateWithLifecycle()
@@ -591,7 +593,7 @@ fun ScanScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .border(2.dp, borderColor, RoundedCornerShape(8.dp))
                                 .background(Color.DarkGray)
-                                .clickable { viewModel.selectReviewPage(index) }
+                                .clickable(enabled = !page.isProcessing) { viewModel.selectReviewPage(index) }
                         ) {
                             val previewBmpState = produceState<Bitmap?>(initialValue = null, page.rawImagePath, page.rotationDegrees, page.filterMode, page.corners) {
                                 value = viewModel.getProcessedPreview(page, targetWidth = 100)
@@ -604,6 +606,21 @@ fun ScanScreen(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
+                            }
+                            
+                            if (page.isProcessing) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
                             }
                             
                             val dotColor = when (page.quality.rating) {
@@ -739,10 +756,53 @@ fun ScanScreen(
                     onNext = { if (index < capturedPages.lastIndex) viewModel.selectReviewPage(index + 1) },
                     onSave = {
                         viewModel.selectReviewPage(null)
-                        showFinishDialog = true
+                        viewModel.finishScanning(onFinish)
                     },
                     getProcessedPreview = { p -> viewModel.getProcessedPreview(p) }
                 )
+            }
+        }
+
+        if (showFinalizeProgress) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    modifier = Modifier
+                        .width(280.dp)
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 4.dp
+                        )
+                        Text(
+                            text = "Finalizing Copy",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = finalizeProgressMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
             }
         }
     }
@@ -840,7 +900,7 @@ fun PageReviewDialog(
                         ) {
                             Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Save", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Save Copy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
