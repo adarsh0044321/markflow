@@ -48,19 +48,32 @@ jobs:
           name: app-release-unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk
 
+      - name: Extract Version Name
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName\s*=\s*"\(.*\)".*/\1/p' app/build.gradle.kts)
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+
+      - name: Set Release Tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=v${{ env.VERSION_NAME }}-build.${{ github.run_number }}" >> $GITHUB_ENV
+          fi
+
       - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Release v1.0.${{ github.run_number }}
+          tag_name: ${{ env.TAG_NAME }}
+          name: Release ${{ env.TAG_NAME }}
           draft: false
           prerelease: false
           files: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/release/app-release-unsigned.apk
           body: |
-            ## MarkFlow Android Application Release v1.0.${{ github.run_number }}
+            ## MarkFlow Android Application Release ${{ env.TAG_NAME }}
             
             This release contains the compiled APK binaries for **MarkFlow**—the professional-grade answer sheet scanner and evaluation application.
             
