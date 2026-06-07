@@ -49,20 +49,61 @@ jobs:
           path: app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Release v1.0.${{ github.run_number }}
+          draft: false
+          prerelease: false
           files: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/release/app-release-unsigned.apk
-          draft: false
-          prerelease: false
-          name: Release ${{ github.ref_name }}
           body: |
-            MarkFlow Android Application Release ${{ github.ref_name }}
+            ## MarkFlow Android Application Release v1.0.${{ github.run_number }}
             
-            ### Artifacts:
-            * **`app-debug.apk`**: Debug build of MarkFlow.
-            * **`app-release-unsigned.apk`**: Unsigned production build of MarkFlow. (Needs to be signed before installing on some devices).
+            This release contains the compiled APK binaries for **MarkFlow**—the professional-grade answer sheet scanner and evaluation application.
+            
+            ### 📦 Release Artifacts
+            * 🟢 **`app-debug.apk`**: The debug version of the application. Recommended for testing and immediate sideloading.
+            * 🔵 **`app-release-unsigned.apk`**: The unsigned production release version. Optimised and minified using R8. (Must be signed with a keystore before installation on standard devices).
+            
+            ---
+            
+            ### 🚀 Implemented Capabilities & Features
+            
+            #### 1. Document-First Scanning & Image Processing
+            * **Automatic Perspective Rectification**: Built-in OpenCV corner point analysis and warps to flat projection grids.
+            * **Adaptive Background Cleaning**: Erases creases, background shadows, and table desk surfaces while keeping red and dark inks crisp.
+            
+            #### 2. Digital Spirit Level (Alignment Assistant)
+            * **Parallel Guidance**: Tracks real-time accelerometer tilt relative to a flat plane.
+            * **Auto-Capture Lockout**: Auto-capturing is restricted if the tilt exceeds 10° to prevent perspective stretching.
+            
+            #### 3. Flash & Light Sensor Automation
+            * **Ambient Light Tracking**: Utilises the device light sensor to automatically enable the camera torch in low-light environments (lux < 15).
+            * **Manual Control modes**: Toggle between `ON`, `OFF`, and `AUTO` states dynamically.
+            
+            #### 4. Direct Annotations
+            * **Draw Red Ink Checks**: Direct screen canvas finger drawings are converted to raw coordinate grids.
+            * **In-place Writing**: Re-writes annotations directly onto the source bitmap in local storage.
+            
+            #### 5. Session Cohorts Dashboarding
+            * **Dynamic Selector**: Easily switch between session groups.
+            * **Advanced Statistics**: View averages, medians, grade bands (A, B, C, D, F) with visual progress bar charts, and search/sort roll numbers.
+            
+            #### 6. PDF Export with Cover Sheet
+            * **Report Covers**: Emits a standardized coversheet containing metadata, student scores, percentages, grade indicators, comments, and signature zones.
+            
+            ---
+            
+            ### 🔧 Tech Stack Highlights
+            * **Jetpack Compose** & **Material 3**
+            * **Jetpack CameraX**
+            * **OpenCV Android SDK**
+            * **ML Kit Text OCR** & **TensorFlow Lite**
+            * **Room Database** & **Hilt DI**
+            * **iText PDF** & **Apache POI**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
