@@ -46,6 +46,23 @@ fun CopySummaryScreen(
     val reportState by viewModel.reportState.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    var showStudentDetailsDialog by remember { mutableStateOf(false) }
+    var studentNameInput by remember { mutableStateOf("") }
+    var rollNumberInput by remember { mutableStateOf("") }
+    var regNumberInput by remember { mutableStateOf("") }
+    var classNameInput by remember { mutableStateOf("") }
+    var sectionInput by remember { mutableStateOf("") }
+
+    LaunchedEffect(showStudentDetailsDialog) {
+        if (showStudentDetailsDialog) {
+            studentNameInput = copy?.studentName ?: ""
+            rollNumberInput = copy?.rollNumber ?: ""
+            regNumberInput = copy?.registrationNumber ?: ""
+            classNameInput = copy?.className ?: ""
+            sectionInput = copy?.section ?: ""
+        }
+    }
+
     LaunchedEffect(reportState) {
         when (val state = reportState) {
             is ReportState.Success -> {
@@ -88,6 +105,87 @@ fun CopySummaryScreen(
         )
     }
 
+    if (showStudentDetailsDialog) {
+        AlertDialog(
+            onDismissRequest = { showStudentDetailsDialog = false },
+            title = { Text("Confirm Student Details") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Verify or enter student details before generating the PDF report:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = studentNameInput,
+                        onValueChange = { studentNameInput = it },
+                        label = { Text("Student Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = rollNumberInput,
+                        onValueChange = { rollNumberInput = it },
+                        label = { Text("Roll Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = regNumberInput,
+                        onValueChange = { regNumberInput = it },
+                        label = { Text("Registration Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = classNameInput,
+                            onValueChange = { classNameInput = it },
+                            label = { Text("Class") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = sectionInput,
+                            onValueChange = { sectionInput = it },
+                            label = { Text("Section") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.generateReport(
+                            studentName = studentNameInput,
+                            rollNumber = rollNumberInput,
+                            registrationNumber = regNumberInput,
+                            className = classNameInput,
+                            section = sectionInput
+                        )
+                        showStudentDetailsDialog = false
+                    }
+                ) {
+                    Text("Generate PDF")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStudentDetailsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -100,7 +198,7 @@ fun CopySummaryScreen(
                 actions = {
                     val isApproved = copy?.isVerified ?: false
                     IconButton(
-                        onClick = { viewModel.generateReport() },
+                        onClick = { showStudentDetailsDialog = true },
                         enabled = isApproved
                     ) {
                         Icon(Icons.Filled.Share, "Share Report")
@@ -463,7 +561,7 @@ fun CopySummaryScreen(
 
                 val isApproved = copy?.isVerified ?: false
                 Button(
-                    onClick = { viewModel.generateReport() },
+                    onClick = { showStudentDetailsDialog = true },
                     enabled = isApproved,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),

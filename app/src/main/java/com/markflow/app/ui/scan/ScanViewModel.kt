@@ -59,7 +59,7 @@ class ScanViewModel @Inject constructor(
         val rawImagePath: String,
         val corners: ImageProcessor.CornerPoints,
         val rotationDegrees: Float = 0f,
-        val filterMode: FilterMode = FilterMode.EXAM_MODE,
+        val filterMode: FilterMode = FilterMode.ORIGINAL,
         val quality: ImageProcessor.ScanQualityResult
     )
 

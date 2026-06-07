@@ -85,10 +85,9 @@ class ScanRepository @Inject constructor(
         } else {
             val finalCorners = corners ?: imageProcessor.detectPaperCorners(bitmap)
             if (finalCorners.isHighConfidence || corners != null) {
-                val warped = imageProcessor.cropAndWarpPerspective(bitmap, finalCorners)
-                imageProcessor.enhanceDocumentReadability(warped)
+                imageProcessor.cropAndWarpPerspective(bitmap, finalCorners)
             } else {
-                imageProcessor.processPageImage(bitmap)
+                imageProcessor.resizeImageOnly(bitmap)
             }
         }
 

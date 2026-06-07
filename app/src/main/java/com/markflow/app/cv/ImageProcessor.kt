@@ -41,6 +41,19 @@ class ImageProcessor @Inject constructor() {
     }
 
     /**
+     * Resize to standard width without enhancing contrast.
+     */
+    fun resizeImageOnly(bitmap: Bitmap): Bitmap {
+        if (bitmap.width > Constants.PROCESSED_IMAGE_WIDTH) {
+            val scale = Constants.PROCESSED_IMAGE_WIDTH.toFloat() / bitmap.width
+            val newHeight = (bitmap.height * scale).toInt()
+            return Bitmap.createScaledBitmap(bitmap, Constants.PROCESSED_IMAGE_WIDTH, newHeight, true)
+        }
+        return bitmap
+    }
+
+
+    /**
      * Enhance image contrast using histogram stretching.
      * Improves visibility of marks on faded or poorly lit pages.
      */

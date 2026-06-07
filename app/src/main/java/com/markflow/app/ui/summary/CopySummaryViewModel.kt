@@ -54,10 +54,24 @@ class CopySummaryViewModel @Inject constructor(
     private val _reportState = MutableStateFlow<ReportState>(ReportState.Idle)
     val reportState: StateFlow<ReportState> = _reportState.asStateFlow()
 
-    fun generateReport() {
+    fun generateReport(
+        studentName: String,
+        rollNumber: String,
+        registrationNumber: String,
+        className: String,
+        section: String
+    ) {
         viewModelScope.launch {
             _reportState.value = ReportState.Loading
             try {
+                copyRepository.updateCopyStudentDetails(
+                    copyId = copyId,
+                    name = studentName.takeIf { it.isNotBlank() },
+                    roll = rollNumber.takeIf { it.isNotBlank() },
+                    reg = registrationNumber.takeIf { it.isNotBlank() },
+                    className = className.takeIf { it.isNotBlank() },
+                    sec = section.takeIf { it.isNotBlank() }
+                )
                 val file = reportGenerator.generateCopyReport(copyId)
                 _reportState.value = ReportState.Success(file)
             } catch (e: Exception) {

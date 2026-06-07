@@ -737,6 +737,10 @@ fun ScanScreen(
                     onClose = { viewModel.selectReviewPage(null) },
                     onPrev = { if (index > 0) viewModel.selectReviewPage(index - 1) },
                     onNext = { if (index < capturedPages.lastIndex) viewModel.selectReviewPage(index + 1) },
+                    onSave = {
+                        viewModel.selectReviewPage(null)
+                        showFinishDialog = true
+                    },
                     getProcessedPreview = { p -> viewModel.getProcessedPreview(p) }
                 )
             }
@@ -758,6 +762,7 @@ fun PageReviewDialog(
     onClose: () -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
+    onSave: () -> Unit,
     getProcessedPreview: suspend (ScanViewModel.StagingPage) -> Bitmap
 ) {
     Surface(
@@ -819,12 +824,24 @@ fun PageReviewDialog(
                     ) {
                         Icon(Icons.Filled.ChevronLeft, "Previous")
                     }
-                    IconButton(
-                        onClick = onNext,
-                        enabled = pageIndex < totalPages - 1,
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f), contentColor = Color.White)
-                    ) {
-                        Icon(Icons.Filled.ChevronRight, "Next")
+                    if (pageIndex < totalPages - 1) {
+                        IconButton(
+                            onClick = onNext,
+                            colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f), contentColor = Color.White)
+                        ) {
+                            Icon(Icons.Filled.ChevronRight, "Next")
+                        }
+                    } else {
+                        Button(
+                            onClick = onSave,
+                            colors = ButtonDefaults.buttonColors(containerColor = MarkFlowGreen, contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Save", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
