@@ -65,6 +65,36 @@ fun ReviewScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            Surface(
+                tonalElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.saveCopy(onBack)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MarkFlowGreen,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Save Copy", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(

@@ -245,4 +245,12 @@ class PageViewViewModel @Inject constructor(
             }
         }
     }
+
+    fun verifyAndSaveCopy(onDone: () -> Unit) {
+        val copyId = page.value?.copyId ?: return
+        viewModelScope.launch {
+            scanRepository.setCopyVerified(copyId, true)
+            onDone()
+        }
+    }
 }

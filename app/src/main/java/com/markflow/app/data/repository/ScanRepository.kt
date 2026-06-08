@@ -43,10 +43,11 @@ class ScanRepository @Inject constructor(
     /**
      * Create a new scanning session.
      */
-    suspend fun createSession(name: String, maxMarks: Double = 100.0): Long {
+    suspend fun createSession(name: String, maxMarks: Double = 100.0, passThreshold: Double = 33.0): Long {
         val session = SessionEntity(
             name = name,
-            maxMarks = maxMarks
+            maxMarks = maxMarks,
+            passThreshold = passThreshold
         )
         return sessionDao.insert(session)
     }

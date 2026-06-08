@@ -56,4 +56,11 @@ class ReviewViewModel @Inject constructor(
     fun ignoreMark(markId: Long) {
         viewModelScope.launch { scanRepository.ignoreMark(markId) }
     }
+
+    fun saveCopy(onDone: () -> Unit) {
+        viewModelScope.launch {
+            scanRepository.setCopyVerified(copyId, true)
+            onDone()
+        }
+    }
 }

@@ -55,7 +55,6 @@ class ScanViewModel @Inject constructor(
     enum class FilterMode {
         ORIGINAL,
         ENHANCED,
-        BINARIZED,
         EXAM_MODE
     }
 
@@ -64,7 +63,7 @@ class ScanViewModel @Inject constructor(
         val rawImagePath: String,
         val corners: ImageProcessor.CornerPoints,
         val rotationDegrees: Float = 0f,
-        val filterMode: FilterMode = FilterMode.ORIGINAL,
+        val filterMode: FilterMode = FilterMode.ENHANCED,
         val quality: ImageProcessor.ScanQualityResult,
         val isProcessed: Boolean = false,
         val isProcessing: Boolean = false,
@@ -467,11 +466,9 @@ class ScanViewModel @Inject constructor(
                     processed = imageProcessor.rotateBitmap(processed, page.rotationDegrees)
                 }
 
-                // 5. Apply selected filter
                 val filtered = when (page.filterMode) {
                     FilterMode.ORIGINAL -> processed
                     FilterMode.ENHANCED -> imageProcessor.enhanceDocumentReadability(processed)
-                    FilterMode.BINARIZED -> imageProcessor.convertToHighContrast(processed)
                     FilterMode.EXAM_MODE -> imageProcessor.applyExamModeFilter(processed)
                 }
 
@@ -735,7 +732,6 @@ class ScanViewModel @Inject constructor(
         val filtered = when (page.filterMode) {
             FilterMode.ORIGINAL -> warped
             FilterMode.ENHANCED -> imageProcessor.enhanceDocumentReadability(warped)
-            FilterMode.BINARIZED -> imageProcessor.convertToHighContrast(warped)
             FilterMode.EXAM_MODE -> imageProcessor.applyExamModeFilter(warped)
         }
         

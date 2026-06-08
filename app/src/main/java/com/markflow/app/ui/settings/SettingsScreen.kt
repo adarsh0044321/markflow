@@ -227,7 +227,7 @@ private fun SettingsTextField(
     var isFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(value) {
-        if (!isFocused && localText != value) {
+        if (!isFocused) {
             localText = value
         }
     }
@@ -250,7 +250,6 @@ private fun SettingsTextField(
                 onValueChange = { newValue ->
                     val filteredValue = newValue.filter { it.isDigit() }
                     localText = filteredValue
-                    onValueChange(filteredValue)
                 },
                 modifier = Modifier
                     .width(80.dp)
@@ -264,13 +263,27 @@ private fun SettingsTextField(
                                     else -> "100"
                                 }
                                 localText = fallback
-                                onValueChange(fallback)
                             }
+                            onValueChange(localText)
                         }
                     },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onDone = {
+                        if (localText.isEmpty()) {
+                            val fallback = when {
+                                title.contains("Sensitivity", ignoreCase = true) -> "50"
+                                title.contains("Pass", ignoreCase = true) -> "33"
+                                else -> "100"
+                            }
+                            localText = fallback
+                        }
+                        onValueChange(localText)
+                    }
                 ),
                 textStyle = MaterialTheme.typography.bodyMedium
             )

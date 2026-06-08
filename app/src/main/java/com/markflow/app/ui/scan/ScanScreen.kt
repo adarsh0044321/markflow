@@ -726,19 +726,6 @@ fun ScanScreen(
             }
         }
 
-        cropState?.let { state ->
-            ManualCropOverlay(
-                rawBitmap = state.rawBitmap,
-                initialCorners = state.corners,
-                onConfirm = { corners ->
-                    viewModel.confirmCrop(corners)
-                },
-                onDiscard = {
-                    viewModel.discardCrop()
-                }
-            )
-        }
-
         activeReviewPageIndex?.let { index ->
             val page = capturedPages.getOrNull(index)
             if (page != null) {
@@ -761,6 +748,19 @@ fun ScanScreen(
                     getProcessedPreview = { p -> viewModel.getProcessedPreview(p) }
                 )
             }
+        }
+
+        cropState?.let { state ->
+            ManualCropOverlay(
+                rawBitmap = state.rawBitmap,
+                initialCorners = state.corners,
+                onConfirm = { corners ->
+                    viewModel.confirmCrop(corners)
+                },
+                onDiscard = {
+                    viewModel.discardCrop()
+                }
+            )
         }
 
         if (showFinalizeProgress) {
@@ -953,7 +953,6 @@ fun PageReviewDialog(
                             val label = when (mode) {
                                 ScanViewModel.FilterMode.ORIGINAL -> "Original"
                                 ScanViewModel.FilterMode.ENHANCED -> "Enhanced"
-                                ScanViewModel.FilterMode.BINARIZED -> "Contrast"
                                 ScanViewModel.FilterMode.EXAM_MODE -> "Exam Mode"
                             }
                             FilterChip(

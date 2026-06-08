@@ -39,6 +39,7 @@ import com.markflow.app.ui.components.ConfidenceBadge
 import com.markflow.app.ui.components.MarkChip
 import com.markflow.app.ui.components.MarkChipSize
 import com.markflow.app.util.toMarksString
+import com.markflow.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -282,11 +283,27 @@ fun PageViewScreen(
                         Text("Delete")
                     }
 
-                    IconButton(
-                        onClick = { viewModel.navigateToNextPage() },
-                        enabled = hasNext
-                    ) {
-                        Icon(Icons.Filled.ArrowForward, "Next Page")
+                    if (hasNext) {
+                        IconButton(
+                            onClick = { viewModel.navigateToNextPage() }
+                        ) {
+                            Icon(Icons.Filled.ArrowForward, "Next Page")
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                viewModel.verifyAndSaveCopy(onBack)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MarkFlowGreen,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Save Copy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

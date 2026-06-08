@@ -418,24 +418,35 @@ class ReportGenerator @Inject constructor(
 
         // 2. Copies List Table
         document.add(Paragraph("Evaluated Student Copies", sectionFont).apply { spacingAfter = 8f })
-        val copiesTable = PdfPTable(7).apply {
+        val passStatusFont = Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, BaseColor(46, 125, 50))
+        val failStatusFont = Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, BaseColor(198, 40, 40))
+
+        // 2. Copies List Table
+        document.add(Paragraph("Evaluated Student Copies", sectionFont).apply { spacingAfter = 8f })
+        val copiesTable = PdfPTable(8).apply {
             widthPercentage = 100f
-            setWidths(floatArrayOf(1f, 3f, 2f, 1.5f, 1.5f, 1.5f, 2.5f))
+            setWidths(floatArrayOf(0.8f, 2.5f, 1.8f, 1.2f, 1.5f, 1.5f, 1.5f, 2.2f))
         }
         addHeaderCell(copiesTable, "#", headerFont)
         addHeaderCell(copiesTable, "Student Name", headerFont)
         addHeaderCell(copiesTable, "Roll Number", headerFont)
         addHeaderCell(copiesTable, "Pages", headerFont)
         addHeaderCell(copiesTable, "Total Marks", headerFont)
+        addHeaderCell(copiesTable, "Result", headerFont)
         addHeaderCell(copiesTable, "Confidence", headerFont)
         addHeaderCell(copiesTable, "Evaluation Date", headerFont)
 
         copies.forEachIndexed { idx, copy ->
+            val isPassed = copy.calculatedTotal >= session.maxMarks * (session.passThreshold / 100.0)
+            val statusText = if (isPassed) "PASS" else "FAIL"
+            val statusFont = if (isPassed) passStatusFont else failStatusFont
+
             copiesTable.addCell(PdfPCell(Phrase("${idx + 1}", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
             copiesTable.addCell(PdfPCell(Phrase(copy.studentName ?: "N/A", cellFont)).apply { setPadding(5f) })
             copiesTable.addCell(PdfPCell(Phrase(copy.rollNumber ?: "N/A", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
             copiesTable.addCell(PdfPCell(Phrase("${copy.pageCount}", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
             copiesTable.addCell(PdfPCell(Phrase("${copy.calculatedTotal}", boldFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            copiesTable.addCell(PdfPCell(Phrase(statusText, statusFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
             copiesTable.addCell(PdfPCell(Phrase("${(copy.overallConfidence * 100).toInt()}%", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
             copiesTable.addCell(PdfPCell(Phrase(dateFormat.format(Date(copy.createdAt)), cellFont)).apply { setPadding(5f) })
         }
@@ -539,6 +550,133 @@ class ReportGenerator @Inject constructor(
         out.close()
         workbook.close()
 
+        return@withContext reportFile
+    }
+
+    suspend fun generateAllClassesReport(): File = withContext(Dispatchers.IO) {
+        val sessions = sessionDao.getAllSessions().first()
+        val allCopies = copyDao.getAllCopies().first()
+
+        val reportsDir = FileUtils.getReportsDir(context)
+        val fileName = FileUtils.generateReportFileName("all_classes_summary", "pdf")
+        val reportFile = File(reportsDir, fileName)
+
+        val document = Document(PageSize.A4.rotate(), 36f, 36f, 36f, 36f)
+        val writer = PdfWriter.getInstance(document, FileOutputStream(reportFile))
+        document.open()
+
+        val titleFont = Font(Font.FontFamily.HELVETICA, 20f, Font.BOLD, BaseColor.DARK_GRAY)
+        val sectionFont = Font(Font.FontFamily.HELVETICA, 14f, Font.BOLD, BaseColor(0, 102, 204))
+        val headerFont = Font(Font.FontFamily.HELVETICA, 10f, Font.BOLD, BaseColor.WHITE)
+        val cellFont = Font(Font.FontFamily.HELVETICA, 9f, Font.NORMAL, BaseColor.BLACK)
+        val boldFont = Font(Font.FontFamily.HELVETICA, 10f, Font.BOLD, BaseColor.BLACK)
+        val passStatusFont = Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, BaseColor(46, 125, 50))
+        val failStatusFont = Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, BaseColor(198, 40, 40))
+
+        // Title
+        document.add(Paragraph("MarkFlow All-Classes Summary Report", titleFont).apply {
+            alignment = Element.ALIGN_CENTER
+            spacingAfter = 5f
+        })
+        document.add(Paragraph("Generated on: ${dateFormat.format(Date())}", cellFont).apply {
+            alignment = Element.ALIGN_CENTER
+            spacingAfter = 15f
+        })
+
+        // 1. Overall Statistics
+        document.add(Paragraph("Overview Statistics", sectionFont).apply { spacingAfter = 8f })
+        val statsTable = PdfPTable(5).apply { widthPercentage = 100f }
+        addHeaderCell(statsTable, "Total Classes/Folders", headerFont)
+        addHeaderCell(statsTable, "Total Students Scanned", headerFont)
+        addHeaderCell(statsTable, "Total Students Passed", headerFont)
+        addHeaderCell(statsTable, "Total Students Failed", headerFont)
+        addHeaderCell(statsTable, "Overall Pass Rate", headerFont)
+
+        var totalPassed = 0
+        var totalFailed = 0
+        allCopies.forEach { copy ->
+            val session = sessions.find { it.id == copy.sessionId }
+            val maxMarks = session?.maxMarks ?: 100.0
+            val passThreshold = session?.passThreshold ?: 33.0
+            val passThresholdScore = maxMarks * (passThreshold / 100.0)
+            if (copy.calculatedTotal >= passThresholdScore) {
+                totalPassed++
+            } else {
+                totalFailed++
+            }
+        }
+        val totalStudents = allCopies.size
+        val overallPassRate = if (totalStudents > 0) (totalPassed.toDouble() / totalStudents) * 100 else 0.0
+
+        statsTable.addCell(PdfPCell(Phrase("${sessions.size}", boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
+        statsTable.addCell(PdfPCell(Phrase("$totalStudents", boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
+        statsTable.addCell(PdfPCell(Phrase("$totalPassed", boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
+        statsTable.addCell(PdfPCell(Phrase("$totalFailed", boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
+        statsTable.addCell(PdfPCell(Phrase(String.format(Locale.US, "%.1f%%", overallPassRate), boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
+
+        document.add(statsTable)
+        document.add(Paragraph(" "))
+
+        // 2. Classes Breakdown
+        document.add(Paragraph("Class-wise Breakdown", sectionFont).apply { spacingAfter = 8f })
+        val classesTable = PdfPTable(6).apply {
+            widthPercentage = 100f
+            setWidths(floatArrayOf(3f, 1.5f, 1.5f, 1.5f, 1.5f, 2f))
+        }
+        addHeaderCell(classesTable, "Class/Folder Name", headerFont)
+        addHeaderCell(classesTable, "Total Copies", headerFont)
+        addHeaderCell(classesTable, "Class Average", headerFont)
+        addHeaderCell(classesTable, "Highest Score", headerFont)
+        addHeaderCell(classesTable, "Lowest Score", headerFont)
+        addHeaderCell(classesTable, "Pass Rate", headerFont)
+
+        sessions.forEach { session ->
+            val sessionCopies = allCopies.filter { it.sessionId == session.id }
+            val sessionPassCount = sessionCopies.count { it.calculatedTotal >= session.maxMarks * (session.passThreshold / 100.0) }
+            val sessionPassRate = if (sessionCopies.isNotEmpty()) (sessionPassCount.toDouble() / sessionCopies.size) * 100 else 0.0
+
+            classesTable.addCell(PdfPCell(Phrase(session.name, cellFont)).apply { setPadding(5f) })
+            classesTable.addCell(PdfPCell(Phrase("${sessionCopies.size}", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            classesTable.addCell(PdfPCell(Phrase(String.format(Locale.US, "%.2f", session.averageMarks), cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            classesTable.addCell(PdfPCell(Phrase("${session.highestMarks}", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            classesTable.addCell(PdfPCell(Phrase("${session.lowestMarks}", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            classesTable.addCell(PdfPCell(Phrase(String.format(Locale.US, "%.1f%%", sessionPassRate), cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+        }
+        document.add(classesTable)
+        document.add(Paragraph(" "))
+
+        // 3. Full Student Name List & Marks
+        document.add(Paragraph("All Students Evaluation Directory", sectionFont).apply { spacingAfter = 8f })
+        val studentTable = PdfPTable(6).apply {
+            widthPercentage = 100f
+            setWidths(floatArrayOf(2.5f, 3f, 2f, 1.5f, 1.5f, 1.5f))
+        }
+        addHeaderCell(studentTable, "Class/Folder", headerFont)
+        addHeaderCell(studentTable, "Student Name", headerFont)
+        addHeaderCell(studentTable, "Roll Number", headerFont)
+        addHeaderCell(studentTable, "Total Marks", headerFont)
+        addHeaderCell(studentTable, "Result Status", headerFont)
+        addHeaderCell(studentTable, "Confidence", headerFont)
+
+        allCopies.forEach { copy ->
+            val session = sessions.find { it.id == copy.sessionId }
+            val maxMarks = session?.maxMarks ?: 100.0
+            val passThreshold = session?.passThreshold ?: 33.0
+            val passThresholdScore = maxMarks * (passThreshold / 100.0)
+            val isPassed = copy.calculatedTotal >= passThresholdScore
+            val statusText = if (isPassed) "PASS" else "FAIL"
+            val statusFont = if (isPassed) passStatusFont else failStatusFont
+
+            studentTable.addCell(PdfPCell(Phrase(session?.name ?: "N/A", cellFont)).apply { setPadding(5f) })
+            studentTable.addCell(PdfPCell(Phrase(copy.studentName ?: "N/A", cellFont)).apply { setPadding(5f) })
+            studentTable.addCell(PdfPCell(Phrase(copy.rollNumber ?: "N/A", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            studentTable.addCell(PdfPCell(Phrase("${copy.calculatedTotal}", boldFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            studentTable.addCell(PdfPCell(Phrase(statusText, statusFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+            studentTable.addCell(PdfPCell(Phrase("${(copy.overallConfidence * 100).toInt()}%", cellFont)).apply { setPadding(5f); horizontalAlignment = Element.ALIGN_CENTER })
+        }
+        document.add(studentTable)
+
+        document.close()
         return@withContext reportFile
     }
 }
