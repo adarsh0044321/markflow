@@ -9,8 +9,8 @@ This document outlines the planned development path for **MarkFlow**. Milestones
 | Version | Focus Area | Key Initiatives | Target Timeline | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **v1.0.0** | Core Release | Perspective deskew, adaptive binarization, digit OCR, PDF reports | Q2 2026 | **Released** |
-| **v1.1.0** | Precision & Scanner | Robust light-invariant edge tracking, higher OCR resolution matrices | Q3 2026 | *In Planning* |
-| **v1.2.0** | Batch Evaluation | Folder scanning, multi-page document packages, quick grading templates | Q4 2026 | *In Planning* |
+| **v1.1.0** | Precision & Scanner | Robust light-invariant edge tracking, higher OCR resolution matrices | Q3 2026 | **Released** |
+| **v1.2.0** | Batch Evaluation | Folder scanning, multi-page document packages, quick grading templates | Q4 2026 | **Released** |
 | **v2.0.0** | Intelligent OCR | Advanced handwriting recognition (HTR), automated sum validations | Q2 2027 | *Researching* |
 | **v3.0.0** | Cloud Ecosystem | Real-time teacher dashboards, secure cloud sync, student analytics | Q4 2027 | *Future Vision* |
 

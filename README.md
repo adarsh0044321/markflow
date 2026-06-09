@@ -16,10 +16,11 @@ Unlike generic camera scanner apps, MarkFlow acts as an end-to-end evaluation as
 ## 🌟 Key Features
 
 *   **⚡ Document Scanning & Deskewing**: Automatic edge detection and perspective warping (`Imgproc.warpPerspective`) that flattens crumpled or angled sheets into perfect, rectangular documents.
-*   **🔴 Red Ink & Correction Detection**: Custom color-channel extraction masks that isolate and highlight teacher corrections, comments, and marks.
-*   **🔍 On-Device Digit OCR & Verification**: Runs Google ML Kit Text Recognition to segment score boxes, verified in real-time by a custom TensorFlow Lite neural network (`digit_recognizer.tflite`) to flag low-confidence reads for manual review.
+*   **🔴 Red Ink & Correction Detection**: Custom color-channel extraction masks that isolate and highlight teacher corrections, comments, and marks. Optimized HSV filtering and dilation cleanup ensure thin pen strokes are never lost.
+*   **🔍 On-Device Digit OCR & Verification**: Runs Google ML Kit Text Recognition to segment score boxes, verified in real-time by a custom TensorFlow Lite neural network (`digit_recognizer.tflite`) with handwriting correction mapping to handle common OCR confusion characters.
+*   **📁 Class Folders & Session Analytics**: Group student copies under custom class folders, view real-time statistics (average marks, highest/lowest scores, pass rates), and manage copies by folder tab.
 *   **📐 Spirit Level Camera Guide**: Leverages the physical accelerometer sensor to restrict automatic image capture if the device tilt exceeds `10°`, preventing perspective distortions.
-*   **📄 Cover Sheet & PDF Exporting**: Generates unified evaluation reports using iText PDF containing automated statistics (class averages, passing ratios, grading bands) followed by high-resolution evidence pages.
+*   **📄 Cover Sheet & PDF Exporting**: Generates unified, color-styled evaluation reports using iText PDF containing automated statistics, cohort pass/fail indicators, followed by high-resolution evidence pages and summary sheets.
 *   **💾 Offline-First Storage**: Uses Android Room SQLite DB to maintain audit trails, evaluation sessions, page assets, and verified grades completely offline.
 
 ---
@@ -100,8 +101,8 @@ The compiled packages will be exported to:
 ## 📅 Roadmap
 
 We are continuously evolving the evaluation assistant. See [ROADMAP.md](ROADMAP.md) for full milestones.
--   [ ] **v1.1**: Improved lighting-robust contour tracking and higher OCR resolution matrices.
--   [ ] **v1.2**: Batch evaluation folder scanning (multi-page document packages).
+-   [x] **v1.1**: Improved lighting-robust contour tracking and higher OCR resolution matrices.
+-   [x] **v1.2**: Batch evaluation folder scanning (multi-page document packages).
 -   [ ] **v2.0**: Advanced handwriting recognition models for evaluation sheet notes.
 -   [ ] **v3.0**: Cloud sync options and centralized administrative teacher dashboard.
 

@@ -130,14 +130,13 @@ class DigitRecognizer @Inject constructor(
         return number to avgConfidence
     }
 
-    private fun getRedness(pixel: Int): Float {
+    private fun getRedness(pixel: Int, isBinaryMask: Boolean): Float {
         val r = (pixel shr 16) and 0xFF
         val g = (pixel shr 8) and 0xFF
         val b = pixel and 0xFF
         
-        // If it's a binary mask (white on black background)
-        if (r == 255 && g == 255 && b == 255) {
-            return 1.0f
+        if (isBinaryMask) {
+            return if (r > 128) 1.0f else 0.0f
         }
         
         // Compute redness: how much red exceeds the green/blue channels
@@ -165,8 +164,20 @@ class DigitRecognizer @Inject constructor(
         val pixels = IntArray(inputSize * inputSize)
         scaled.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
 
+        // Dynamically detect if this image is a binary mask (e.g. only 0/black or 255/white values)
+        var isBinaryMask = true
         for (pixel in pixels) {
-            val gray = getRedness(pixel)
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            if ((r != 0 && r != 255) || (g != 0 && g != 255) || (b != 0 && b != 255)) {
+                isBinaryMask = false
+                break
+            }
+        }
+
+        for (pixel in pixels) {
+            val gray = getRedness(pixel, isBinaryMask)
             buffer.putFloat(gray)
         }
 
@@ -185,12 +196,24 @@ class DigitRecognizer @Inject constructor(
         val pixels = IntArray(width * height)
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
 
+        // Dynamically detect if this image is a binary mask
+        var isBinaryMask = true
+        for (pixel in pixels) {
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            if ((r != 0 && r != 255) || (g != 0 && g != 255) || (b != 0 && b != 255)) {
+                isBinaryMask = false
+                break
+            }
+        }
+
         // Vertical projection: count red ink pixels per column using getRedness helper
         val projection = IntArray(width)
         for (x in 0 until width) {
             for (y in 0 until height) {
                 val pixel = pixels[y * width + x]
-                if (getRedness(pixel) > 0.15f) {
+                if (getRedness(pixel, isBinaryMask) > 0.15f) {
                     projection[x]++
                 }
             }

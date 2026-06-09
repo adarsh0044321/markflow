@@ -26,8 +26,8 @@ object Constants {
     // ── Red Ink Detection (HSV ranges) ──
     /** Hue range for red ink detection (two ranges because red wraps around 0/180) */
     const val RED_HUE_LOW_1 = 0.0
-    const val RED_HUE_HIGH_1 = 30.0
-    const val RED_HUE_LOW_2 = 135.0
+    const val RED_HUE_HIGH_1 = 15.0
+    const val RED_HUE_LOW_2 = 165.0
     const val RED_HUE_HIGH_2 = 180.0
     /** Minimum saturation for red ink */
     const val RED_SAT_MIN = 60.0

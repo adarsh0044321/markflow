@@ -141,9 +141,9 @@ class MarkVerifier @Inject constructor(
             val isUnderlined = isUnderlined(contour)
             val isMargin = bb.x < 250 || bb.x > 950
 
-            // If a region has special visual structures (circled, boxed, underlined, or margin) or has a detected value, we keep it.
-            // Skip ONLY plain, unreadable background noise.
-            val shouldKeep = isCircled || isUnderlined || isMargin || hasValue
+            // If a region has special visual structures (circled, boxed, underlined) or has a detected value, we keep it.
+            // A plain margin location is only kept if it actually has a detected value.
+            val shouldKeep = isCircled || isUnderlined || hasValue
 
             if (!shouldKeep) {
                 crop.recycle()

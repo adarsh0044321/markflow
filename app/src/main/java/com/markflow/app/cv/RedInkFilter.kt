@@ -65,8 +65,8 @@ class RedInkFilter @Inject constructor(
         val hsv = FloatArray(3)
 
         // Dynamically compute thresholds based on sensitivity (0 to 100 range)
-        val baseSat = maxOf(10.0, 60.0 - (sensitivity * 0.5))
-        val baseVal = maxOf(10.0, 50.0 - (sensitivity * 0.4))
+        val baseSat = maxOf(15.0, 45.0 - (sensitivity * 0.4))
+        val baseVal = maxOf(15.0, 40.0 - (sensitivity * 0.3))
 
         for (i in pixels.indices) {
             val pixel = pixels[i]
@@ -118,7 +118,7 @@ class RedInkFilter @Inject constructor(
         val pixels = IntArray(width * height)
         mask.getPixels(pixels, 0, width, 0, 0, width, height)
 
-        // Dilation (3x3 kernel) — expand white regions
+        // Dilation (3x3 kernel) — expand white regions to fill gaps in thin lines
         val dilated = IntArray(width * height)
         for (y in 1 until height - 1) {
             for (x in 1 until width - 1) {
@@ -136,26 +136,8 @@ class RedInkFilter @Inject constructor(
             }
         }
 
-        // Erosion (3x3 kernel) — shrink white regions back
-        val eroded = IntArray(width * height)
-        for (y in 1 until height - 1) {
-            for (x in 1 until width - 1) {
-                var allWhite = true
-                for (dy in -1..1) {
-                    for (dx in -1..1) {
-                        if (dilated[(y + dy) * width + (x + dx)] != Color.WHITE) {
-                            allWhite = false
-                            break
-                        }
-                    }
-                    if (!allWhite) break
-                }
-                eroded[y * width + x] = if (allWhite) Color.WHITE else Color.BLACK
-            }
-        }
-
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        result.setPixels(eroded, 0, width, 0, 0, width, height)
+        result.setPixels(dilated, 0, width, 0, 0, width, height)
         return result
     }
 
@@ -187,13 +169,13 @@ class RedInkFilter @Inject constructor(
         val avgVal = totalVal / pixels.size
 
         // Dynamically compute thresholds based on sensitivity (0 to 100 range)
-        val baseSat = maxOf(10.0, 60.0 - (sensitivity * 0.5))
-        val baseVal = maxOf(10.0, 50.0 - (sensitivity * 0.4))
+        val baseSat = maxOf(15.0, 45.0 - (sensitivity * 0.4))
+        val baseVal = maxOf(15.0, 40.0 - (sensitivity * 0.3))
 
         // If the image is very washed out, lower saturation threshold
         // If very dark, lower brightness threshold
-        val satThreshold = maxOf(10.0, if (avgSat < 0.3) baseSat * 0.6 else baseSat)
-        val valThreshold = maxOf(10.0, if (avgVal < 0.4) baseVal * 0.6 else baseVal)
+        val satThreshold = maxOf(10.0, if (avgSat < 0.3) baseSat * 0.7 else baseSat)
+        val valThreshold = maxOf(10.0, if (avgVal < 0.4) baseVal * 0.7 else baseVal)
 
         return detectRedInkWithThresholds(bitmap, satThreshold, valThreshold)
     }

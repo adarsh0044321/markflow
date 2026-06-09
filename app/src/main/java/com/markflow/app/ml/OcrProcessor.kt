@@ -76,12 +76,51 @@ class OcrProcessor @Inject constructor() {
         }
     }
 
+    private fun mapOcrConfusions(text: String): String {
+        var mapped = text.trim()
+        if (mapped.isEmpty()) return mapped
+
+        // Common substitutions for single characters
+        if (mapped.length == 1) {
+            when (mapped) {
+                "S", "s" -> return "5"
+                "O", "o" -> return "0"
+                "I", "l", "|", "i" -> return "1"
+                "Z", "z" -> return "2"
+                "B" -> return "8"
+                "g", "q" -> return "9"
+            }
+        }
+
+        // For multi-character strings, check if all characters are valid digits, slashes, dots,
+        // or common confusion characters. If so, map all of them.
+        val isAllConfusionChars = mapped.all { it.isDigit() || it == '/' || it == '.' || it in "oOiIl|iszZBgqbT" }
+        if (isAllConfusionChars) {
+            val sb = StringBuilder()
+            for (char in mapped) {
+                when (char) {
+                    'o', 'O' -> sb.append('0')
+                    'i', 'I', 'l', '|', 't', 'T' -> sb.append('1')
+                    's', 'S' -> sb.append('5')
+                    'z', 'Z' -> sb.append('2')
+                    'B' -> sb.append('8')
+                    'g', 'q' -> sb.append('9')
+                    'b' -> sb.append('6')
+                    else -> sb.append(char)
+                }
+            }
+            mapped = sb.toString()
+        }
+
+        return mapped
+    }
+
     /**
      * Parse a raw OCR text string into a numeric mark value.
      * Returns: (value, displayString, isFraction, numerator, denominator)
      */
     private fun parseMarkValue(text: String): ParsedMark {
-        var normalized = text.trim()
+        var normalized = mapOcrConfusions(text)
         
         // 1. Replace commas/semicolons with dots
         normalized = normalized.replace(',', '.')
@@ -93,7 +132,15 @@ class OcrProcessor @Inject constructor() {
         // 3. Replace a single space between two digits with a dot (e.g. "4 5" -> "4.5")
         normalized = normalized.replace(Regex("(\\d)\\s+(\\d)"), "$1.$2")
         
-        val cleaned = normalized.replace("[^0-9./]".toRegex(), "").trim()
+        var cleaned = normalized.replace("[^0-9./]".toRegex(), "").trim()
+
+        // Strip leading/trailing slashes if it's not a fraction (e.g. "/5" -> "5" or "5/" -> "5")
+        if (cleaned.startsWith("/") && !cleaned.substring(1).contains("/")) {
+            cleaned = cleaned.removePrefix("/")
+        }
+        if (cleaned.endsWith("/") && !cleaned.substring(0, cleaned.length - 1).contains("/")) {
+            cleaned = cleaned.removeSuffix("/")
+        }
 
         if (cleaned.isEmpty()) return ParsedMark(null, text, false, null, null)
 
@@ -131,8 +178,9 @@ class OcrProcessor @Inject constructor() {
             val rawVal = intMatch.groupValues[1]
             val value = rawVal.toDoubleOrNull()
             if (value != null) {
-                // If it's a two digit integer ending in 5 (like 45, 55, 75, 85, 95) and > 10.0, it's very likely a decimal (e.g., 4.5)
-                if (rawVal.length == 2 && rawVal.endsWith("5") && value > 10.0) {
+                // If it's a two digit integer ending in 5 (like 25, 35, 45, 55, 75, 85, 95) and > 20.0, it's very likely a decimal (e.g., 2.5)
+                // We exclude values <= 20.0 (like 15.0) to prevent corrupting valid marks of 15 points.
+                if (rawVal.length == 2 && rawVal.endsWith("5") && value > 20.0) {
                     val correctedValue = value / 10.0
                     return ParsedMark(correctedValue, correctedValue.toCleanString(), false, null, null)
                 }
