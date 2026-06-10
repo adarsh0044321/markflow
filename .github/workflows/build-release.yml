@@ -33,6 +33,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Remove local Java Home override for CI
+        run: sed -i '/org.gradle.java.home/d' gradle.properties
+
       - name: Build with Gradle
         run: ./gradlew assembleDebug assembleRelease --no-daemon
 
