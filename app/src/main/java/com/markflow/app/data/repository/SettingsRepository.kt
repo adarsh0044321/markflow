@@ -25,6 +25,12 @@ class SettingsRepository @Inject constructor(
         val MAX_MARKS = stringPreferencesKey("max_marks")
         val PASS_THRESHOLD = stringPreferencesKey("pass_threshold")
         val MARK_SENSITIVITY = stringPreferencesKey("mark_sensitivity")
+        val ANSWER_SHEET_ORIENTATION = stringPreferencesKey("answer_sheet_orientation")
+        val DEFAULT_QUESTION_MARKS = stringPreferencesKey("default_question_marks")
+        val MARK_RECOGNITION_LIMIT_MIN = stringPreferencesKey("mark_recognition_limit_min")
+        val MARK_RECOGNITION_LIMIT_MAX = stringPreferencesKey("mark_recognition_limit_max")
+        val AUTO_CROP = booleanPreferencesKey("auto_crop")
+        val SHOW_ANNOTATIONS = booleanPreferencesKey("show_annotations")
     }
 
     val darkThemeFlow: Flow<Boolean> = context.dataStore.data
@@ -132,6 +138,126 @@ class SettingsRepository @Inject constructor(
     suspend fun setMarkSensitivity(value: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.MARK_SENSITIVITY] = value
+        }
+    }
+
+    val answerSheetOrientationFlow: Flow<String> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.ANSWER_SHEET_ORIENTATION] ?: "portrait"
+        }
+
+    val isOrientationSetFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences.contains(PreferencesKeys.ANSWER_SHEET_ORIENTATION)
+        }
+
+    suspend fun setAnswerSheetOrientation(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ANSWER_SHEET_ORIENTATION] = value
+        }
+    }
+
+    val defaultQuestionMarksFlow: Flow<String> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.DEFAULT_QUESTION_MARKS] ?: "5.0"
+        }
+
+    val markRecognitionLimitMinFlow: Flow<String> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.MARK_RECOGNITION_LIMIT_MIN] ?: "0.0"
+        }
+
+    val markRecognitionLimitMaxFlow: Flow<String> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.MARK_RECOGNITION_LIMIT_MAX] ?: "10.0"
+        }
+
+    val autoCropFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.AUTO_CROP] ?: true
+        }
+
+    val showAnnotationsFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.SHOW_ANNOTATIONS] ?: true
+        }
+
+    suspend fun setDefaultQuestionMarks(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEFAULT_QUESTION_MARKS] = value
+        }
+    }
+
+    suspend fun setMarkRecognitionLimitMin(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MARK_RECOGNITION_LIMIT_MIN] = value
+        }
+    }
+
+    suspend fun setMarkRecognitionLimitMax(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MARK_RECOGNITION_LIMIT_MAX] = value
+        }
+    }
+
+    suspend fun setAutoCrop(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_CROP] = enabled
+        }
+    }
+
+    suspend fun setShowAnnotations(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_ANNOTATIONS] = enabled
         }
     }
 }

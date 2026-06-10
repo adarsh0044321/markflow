@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -87,21 +88,76 @@ fun CopySummaryScreen(
         }
     }
 
-    if (reportState is ReportState.Loading) {
+    val showProgressDialog = reportState is ReportState.Loading || reportState is ReportState.LoadingProgress
+    if (showProgressDialog) {
+        val currentProgress = when (val state = reportState) {
+            is ReportState.LoadingProgress -> state.progress
+            else -> 0f
+        }
+        val currentPage = when (val state = reportState) {
+            is ReportState.LoadingProgress -> state.currentPage
+            else -> 0
+        }
+        val totalPages = when (val state = reportState) {
+            is ReportState.LoadingProgress -> state.totalPages
+            else -> pages.size
+        }
+        val estimatedTime = when (val state = reportState) {
+            is ReportState.LoadingProgress -> state.estimatedTimeSeconds
+            else -> -1
+        }
+
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Generating Report") },
             text = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(8.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    CircularProgressIndicator()
-                    Text("Building PDF with annotated images...")
+                    Text(
+                        text = if (currentPage > 0) "Building page $currentPage of $totalPages..." else "Preparing export...",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    LinearProgressIndicator(
+                        progress = { currentProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${(currentProgress * 100).toInt()}% complete",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        if (estimatedTime >= 0) {
+                            Text(
+                                text = if (estimatedTime == 0) "Almost done..." else "Est: ${estimatedTime}s remaining",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             },
-            confirmButton = {}
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.cancelExport() }
+                ) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 

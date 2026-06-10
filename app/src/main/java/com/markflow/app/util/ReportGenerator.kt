@@ -17,6 +17,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.apache.poi.ss.usermodel.FillPatternType
 import org.apache.poi.ss.usermodel.IndexedColors
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -27,6 +32,10 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+
+interface ExportProgressListener {
+    fun onProgress(currentPage: Int, totalPages: Int, progress: Float, estimatedTimeSeconds: Int): Boolean
+}
 
 @Singleton
 class ReportGenerator @Inject constructor(
@@ -50,7 +59,10 @@ class ReportGenerator @Inject constructor(
         table.addCell(cell)
     }
 
-    suspend fun generateCopyReport(copyId: Long): File = withContext(Dispatchers.IO) {
+    suspend fun generateCopyReport(
+        copyId: Long,
+        progressListener: ExportProgressListener? = null
+    ): File = withContext(Dispatchers.IO) {
         val copy = copyDao.getCopyById(copyId) ?: throw IllegalArgumentException("Copy not found")
         val pages = pageDao.getPagesByCopySync(copyId).sortedBy { it.pageNumber }
         val marks = markDao.getMarksByCopySync(copyId)
@@ -61,6 +73,93 @@ class ReportGenerator @Inject constructor(
         val reportsDir = FileUtils.getReportsDir(context)
         val fileName = FileUtils.generateReportFileName("copy_${copy.copyNumber}", "pdf")
         val reportFile = File(reportsDir, fileName)
+
+        // 1. Process page images in parallel with Semaphore to limit concurrency and RAM footprint
+        val totalPages = pages.size
+        val completedCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val startTime = System.currentTimeMillis()
+        val semaphore = kotlinx.coroutines.sync.Semaphore(3)
+
+        val imageBytesDeferred = coroutineScope {
+            pages.map { page ->
+                async(Dispatchers.Default) {
+                    if (!isActive) return@async null
+                    semaphore.withPermit {
+                        if (!isActive) return@withPermit null
+                        val rawFile = File(page.imagePath)
+                        var byteData: ByteArray? = null
+                        if (rawFile.exists()) {
+                            val options = BitmapFactory.Options().apply {
+                                inMutable = true
+                                inPreferredConfig = Bitmap.Config.ARGB_8888
+                            }
+                            val rawBitmap = BitmapFactory.decodeFile(page.imagePath, options)
+                            if (rawBitmap != null) {
+                                val canvas = Canvas(rawBitmap)
+                                val paint = Paint().apply {
+                                    color = Color.RED
+                                    style = Paint.Style.STROKE
+                                    strokeWidth = 5f
+                                }
+                                val textPaint = Paint().apply {
+                                    color = Color.RED
+                                    textSize = 28f
+                                    style = Paint.Style.FILL
+                                    strokeWidth = 2f
+                                }
+
+                                val pageMarks = marks.filter { it.pageId == page.id }
+                                pageMarks.forEach { mark ->
+                                    if (mark.status != "rejected" && mark.status != "ignored") {
+                                        val rect = Rect(
+                                            mark.boundingBoxX,
+                                            mark.boundingBoxY,
+                                            mark.boundingBoxX + mark.boundingBoxWidth,
+                                            mark.boundingBoxY + mark.boundingBoxHeight
+                                        )
+                                        canvas.drawRect(rect, paint)
+                                        canvas.drawText(
+                                            mark.displayValue,
+                                            mark.boundingBoxX.toFloat(),
+                                            (mark.boundingBoxY - 10).toFloat(),
+                                            textPaint
+                                        )
+                                    }
+                                }
+
+                                val outStream = java.io.ByteArrayOutputStream()
+                                rawBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outStream)
+                                byteData = outStream.toByteArray()
+                                rawBitmap.recycle()
+                            }
+                        }
+
+                        // Increment progress
+                        val completed = completedCount.incrementAndGet()
+                        val pct = completed.toFloat() / totalPages
+                        val elapsed = System.currentTimeMillis() - startTime
+                        val avgTimePerPage = elapsed / completed.toDouble()
+                        val estRemainingSeconds = ((totalPages - completed) * avgTimePerPage / 1000.0).toInt()
+
+                        val shouldContinue = progressListener?.onProgress(
+                            currentPage = completed,
+                            totalPages = totalPages,
+                            progress = pct,
+                            estimatedTimeSeconds = estRemainingSeconds
+                        ) ?: true
+
+                        if (!shouldContinue) {
+                            throw kotlinx.coroutines.CancellationException("Export cancelled by user")
+                        }
+
+                        byteData
+                    }
+                }
+            }
+        }
+
+        // Wait for all image processes to complete
+        val imageBytesList = imageBytesDeferred.map { it.await() }
 
         val document = Document(PageSize.A4, 36f, 36f, 36f, 36f)
         val writer = PdfWriter.getInstance(document, FileOutputStream(reportFile))
@@ -185,7 +284,6 @@ class ReportGenerator @Inject constructor(
         // Add page break to separate Cover Sheet from details
         document.newPage()
 
-
         // 3. Issue Summary
         if (issues.isNotEmpty()) {
             document.add(Paragraph("Detected Issues", sectionFont).apply { spacingAfter = 8f })
@@ -233,66 +331,20 @@ class ReportGenerator @Inject constructor(
 
         // 5. Embedded Scanned Pages with Annotations and Evidence
         document.add(Paragraph("Scanned Documents & Evidence", sectionFont).apply { spacingAfter = 8f })
-        pages.forEach { page ->
+        pages.forEachIndexed { index, page ->
+            if (!this@withContext.isActive) {
+                throw kotlinx.coroutines.CancellationException("Export cancelled by user")
+            }
             document.newPage()
             document.add(Paragraph("Page ${page.pageNumber}", sectionFont).apply { spacingAfter = 6f })
 
-            // Load and annotate bitmap
-            val rawFile = File(page.imagePath)
-            if (rawFile.exists()) {
-                val rawBitmap = BitmapFactory.decodeFile(page.imagePath)
-                if (rawBitmap != null) {
-                    val annotated = rawBitmap.copy(Bitmap.Config.ARGB_8888, true)
-                    val canvas = Canvas(annotated)
-                    val paint = Paint().apply {
-                        color = Color.RED
-                        style = Paint.Style.STROKE
-                        strokeWidth = 5f
-                    }
-                    val textPaint = Paint().apply {
-                        color = Color.RED
-                        textSize = 28f
-                        style = Paint.Style.FILL
-                        strokeWidth = 2f
-                    }
-
-                    val pageMarks = marks.filter { it.pageId == page.id }
-                    pageMarks.forEach { mark ->
-                        if (mark.status != "rejected" && mark.status != "ignored") {
-                            // Draw bounding box
-                            val rect = Rect(
-                                mark.boundingBoxX,
-                                mark.boundingBoxY,
-                                mark.boundingBoxX + mark.boundingBoxWidth,
-                                mark.boundingBoxY + mark.boundingBoxHeight
-                            )
-                            canvas.drawRect(rect, paint)
-                            // Draw value text above box
-                            canvas.drawText(
-                                mark.displayValue,
-                                mark.boundingBoxX.toFloat(),
-                                (mark.boundingBoxY - 10).toFloat(),
-                                textPaint
-                            )
-                        }
-                    }
-
-                    // Save annotated to temp file
-                    val tempFile = File.createTempFile("annotated_p${page.pageNumber}", ".jpg", context.cacheDir)
-                    val out = FileOutputStream(tempFile)
-                    annotated.compress(Bitmap.CompressFormat.JPEG, 85, out)
-                    out.close()
-
-                    // Embed annotated page image in PDF
-                    val img = Image.getInstance(tempFile.absolutePath)
-                    img.scaleToFit(500f, 650f)
-                    img.alignment = Element.ALIGN_CENTER
-                    document.add(img)
-
-                    tempFile.delete()
-                    annotated.recycle()
-                    rawBitmap.recycle()
-                }
+            // Embed annotated page image in PDF
+            val imageBytes = imageBytesList[index]
+            if (imageBytes != null) {
+                val img = Image.getInstance(imageBytes)
+                img.scaleToFit(500f, 650f)
+                img.alignment = Element.ALIGN_CENTER
+                document.add(img)
             }
 
             // Embedded evidence crops
@@ -309,8 +361,8 @@ class ReportGenerator @Inject constructor(
                 addHeaderCell(evidenceTable, "Detected Value", headerFont)
                 addHeaderCell(evidenceTable, "Teacher Action", headerFont)
 
-                marksWithEvidence.forEachIndexed { index, mark ->
-                    evidenceTable.addCell(PdfPCell(Phrase("Mark #${index + 1}", cellFont)).apply { setPadding(5f); verticalAlignment = Element.ALIGN_MIDDLE; horizontalAlignment = Element.ALIGN_CENTER })
+                marksWithEvidence.forEachIndexed { idx, mark ->
+                    evidenceTable.addCell(PdfPCell(Phrase("Mark #${idx + 1}", cellFont)).apply { setPadding(5f); verticalAlignment = Element.ALIGN_MIDDLE; horizontalAlignment = Element.ALIGN_CENTER })
 
                     // Add evidence crop image
                     val evidenceFile = File(mark.evidenceImagePath!!)

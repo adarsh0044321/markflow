@@ -8,6 +8,7 @@ import com.markflow.app.cv.ImageProcessor
 import com.markflow.app.ml.OcrProcessor
 import com.markflow.app.data.repository.CopyRepository
 import com.markflow.app.data.repository.ScanRepository
+import com.markflow.app.data.repository.SettingsRepository
 import com.markflow.app.domain.model.DetectedMark
 import com.markflow.app.domain.model.Page
 import com.markflow.app.util.BitmapUtils
@@ -17,13 +18,26 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class ToolType {
+    NONE, FREE_PEN, TICK, CROSS, PAGE_SEEN, BLANK_PAGE, UNDERLINE, CIRCLE, QUESTION_NUMBER
+}
+
+data class AnnotationAction(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val type: ToolType,
+    val points: List<androidx.compose.ui.geometry.Offset>,
+    val size: Float = 48f,
+    val text: String? = null
+)
+
 @HiltViewModel
 class PageViewViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val copyRepository: CopyRepository,
     private val scanRepository: ScanRepository,
     private val imageProcessor: ImageProcessor,
-    private val ocrProcessor: OcrProcessor
+    private val ocrProcessor: OcrProcessor,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     data class DiagnosticsState(
@@ -41,6 +55,10 @@ class PageViewViewModel @Inject constructor(
     private val _diagnostics = MutableStateFlow<DiagnosticsState?>(null)
     val diagnostics: StateFlow<DiagnosticsState?> = _diagnostics.asStateFlow()
 
+    val maxQuestionMarks: StateFlow<Double> = settingsRepository.defaultQuestionMarksFlow
+        .map { it.toDoubleOrNull() ?: 5.0 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5.0)
+
     fun calculateDiagnostics(imagePath: String) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
@@ -48,10 +66,8 @@ class PageViewViewModel @Inject constructor(
                 if (!file.exists()) return@launch
                 val bitmap = BitmapFactory.decodeFile(imagePath) ?: return@launch
                 
-                // 1. Pixel analysis
                 val pixelAnalysis = imageProcessor.analyzePagePixels(bitmap)
                 
-                // 2. OCR details
                 val ocrText = ocrProcessor.recognizeFullPageText(bitmap)
                 val cleanText = ocrText.replace(Regex("\\s"), "")
                 val words = ocrText.split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -150,7 +166,7 @@ class PageViewViewModel @Inject constructor(
         }
     }
 
-    fun addManualMark(value: Double, displayValue: String, x: Int, y: Int) {
+    fun addManualMark(value: Double, displayValue: String, x: Int, y: Int, isQuestionNumber: Boolean = false) {
         val copyId = page.value?.copyId ?: return
         viewModelScope.launch {
             scanRepository.addManualMark(
@@ -161,6 +177,15 @@ class PageViewViewModel @Inject constructor(
                 x = x,
                 y = y
             )
+            if (isQuestionNumber) {
+                // Set the region type of the newly added mark to "question_number"
+                val newMarks = copyRepository.getMarksByPage(_currentPageId.value).first()
+                val newlyAdded = newMarks.filter { it.isManual && it.displayValue == displayValue }.maxByOrNull { it.createdAt }
+                if (newlyAdded != null) {
+                    // Update region type and status to ignored
+                    scanRepository.ignoreMark(newlyAdded.id)
+                }
+            }
         }
     }
 
@@ -182,7 +207,12 @@ class PageViewViewModel @Inject constructor(
         }
     }
 
-    fun saveDrawing(imagePath: String, strokes: List<List<androidx.compose.ui.geometry.Offset>>, composeWidth: Float, composeHeight: Float) {
+    fun saveDrawing(
+        imagePath: String,
+        annotations: List<AnnotationAction>,
+        composeWidth: Float,
+        composeHeight: Float
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val file = java.io.File(imagePath)
@@ -204,16 +234,101 @@ class PageViewViewModel @Inject constructor(
                 val scaleX = mutableBitmap.width.toFloat() / composeWidth
                 val scaleY = mutableBitmap.height.toFloat() / composeHeight
                 
-                strokes.forEach { stroke ->
-                    if (stroke.size > 1) {
-                        val path = android.graphics.Path()
-                        path.moveTo(stroke[0].x * scaleX, stroke[0].y * scaleY)
-                        for (i in 1 until stroke.size) {
-                            path.lineTo(stroke[i].x * scaleX, stroke[i].y * scaleY)
+                annotations.forEach { action ->
+                    val pts = action.points
+                    if (pts.isEmpty()) return@forEach
+                    val s = action.size * scaleX
+                    val p0 = pts[0]
+                    val x = p0.x * scaleX
+                    val y = p0.y * scaleY
+                    when (action.type) {
+                        ToolType.FREE_PEN -> {
+                            if (pts.size > 1) {
+                                val path = android.graphics.Path()
+                                path.moveTo(pts[0].x * scaleX, pts[0].y * scaleY)
+                                for (i in 1 until pts.size) {
+                                    path.lineTo(pts[i].x * scaleX, pts[i].y * scaleY)
+                                }
+                                canvas.drawPath(path, paint)
+                            } else if (pts.size == 1) {
+                                canvas.drawPoint(x, y, paint)
+                            }
                         }
-                        canvas.drawPath(path, paint)
-                    } else if (stroke.size == 1) {
-                        canvas.drawPoint(stroke[0].x * scaleX, stroke[0].y * scaleY, paint)
+                        ToolType.TICK -> {
+                            canvas.drawLine(x - s/2, y, x - s/6, y + s/3, paint)
+                            canvas.drawLine(x - s/6, y + s/3, x + s/2, y - s/2, paint)
+                        }
+                        ToolType.CROSS -> {
+                            canvas.drawLine(x - s/2, y - s/2, x + s/2, y + s/2, paint)
+                            canvas.drawLine(x - s/2, y + s/2, x + s/2, y - s/2, paint)
+                        }
+                        ToolType.PAGE_SEEN -> {
+                            val dx1 = -s/4
+                            canvas.drawLine(x + dx1 - s/3, y, x + dx1 - s/12, y + s/5, paint)
+                            canvas.drawLine(x + dx1 - s/12, y + s/5, x + dx1 + s/3, y - s/3, paint)
+                            val dx2 = s/4
+                            canvas.drawLine(x + dx2 - s/3, y, x + dx2 - s/12, y + s/5, paint)
+                            canvas.drawLine(x + dx2 - s/12, y + s/5, x + dx2 + s/3, y - s/3, paint)
+                            
+                            val stampPaint = android.graphics.Paint().apply {
+                                color = android.graphics.Color.RED
+                                textSize = s * 0.5f
+                                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                                isAntiAlias = true
+                            }
+                            canvas.drawText("SEEN", x - stampPaint.measureText("SEEN")/2f, y + s/2 + stampPaint.textSize/3f, stampPaint)
+                        }
+                        ToolType.BLANK_PAGE -> {
+                            val rectPaint = android.graphics.Paint(paint).apply {
+                                style = android.graphics.Paint.Style.STROKE
+                            }
+                            canvas.drawRect(x - s, y - s/2, x + s, y + s/2, rectPaint)
+                            canvas.drawLine(x - s, y - s/2, x + s, y + s/2, paint)
+                            
+                            val stampPaint = android.graphics.Paint().apply {
+                                color = android.graphics.Color.RED
+                                textSize = s * 0.35f
+                                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                                isAntiAlias = true
+                            }
+                            canvas.drawText("BLANK", x - stampPaint.measureText("BLANK")/2f, y + stampPaint.textSize/3f, stampPaint)
+                        }
+                        ToolType.UNDERLINE -> {
+                            if (pts.size >= 2) {
+                                val p1 = pts[1]
+                                canvas.drawLine(x, y, p1.x * scaleX, y, paint)
+                            }
+                        }
+                        ToolType.CIRCLE -> {
+                            if (pts.size >= 2) {
+                                val p1 = pts[1]
+                                val rect = android.graphics.RectF(
+                                    minOf(x, p1.x * scaleX),
+                                    minOf(y, p1.y * scaleY),
+                                    maxOf(x, p1.x * scaleX),
+                                    maxOf(y, p1.y * scaleY)
+                                )
+                                canvas.drawOval(rect, paint)
+                            }
+                        }
+                        ToolType.QUESTION_NUMBER -> {
+                            val text = action.text ?: "Q"
+                            val stampPaint = android.graphics.Paint().apply {
+                                color = android.graphics.Color.RED
+                                textSize = s * 0.6f
+                                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                                isAntiAlias = true
+                            }
+                            val textWidth = stampPaint.measureText(text)
+                            val bgPaint = android.graphics.Paint().apply {
+                                color = android.graphics.Color.WHITE
+                                style = android.graphics.Paint.Style.FILL
+                            }
+                            canvas.drawRect(x - textWidth/2f - 6f, y - stampPaint.textSize/2f - 6f, x + textWidth/2f + 6f, y + stampPaint.textSize/2f + 6f, bgPaint)
+                            canvas.drawRect(x - textWidth/2f - 6f, y - stampPaint.textSize/2f - 6f, x + textWidth/2f + 6f, y + stampPaint.textSize/2f + 6f, paint)
+                            canvas.drawText(text, x - textWidth/2f, y + stampPaint.textSize/3f, stampPaint)
+                        }
+                        ToolType.NONE -> {}
                     }
                 }
                 
@@ -221,7 +336,6 @@ class PageViewViewModel @Inject constructor(
                 mutableBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
                 out.close()
 
-                // Regenerate thumbnail if it exists to keep list views updated
                 page.value?.thumbnailPath?.let { thumbPath ->
                     try {
                         val thumbFile = java.io.File(thumbPath)
@@ -237,7 +351,6 @@ class PageViewViewModel @Inject constructor(
 
                 mutableBitmap.recycle()
                 
-                // Trigger state refresh
                 val currentId = _currentPageId.value
                 _currentPageId.value = currentId
             } catch (e: java.lang.Exception) {

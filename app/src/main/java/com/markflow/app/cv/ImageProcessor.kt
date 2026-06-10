@@ -424,18 +424,21 @@ class ImageProcessor @Inject constructor() {
         val isHighConfidence: Boolean
     )
 
-    fun detectPaperCorners(bitmap: Bitmap): CornerPoints {
+    fun detectPaperCorners(bitmap: Bitmap, isLandscape: Boolean = false): CornerPoints {
         val width = bitmap.width.toFloat()
         val height = bitmap.height.toFloat()
         
-        val scale = 0.2f
-        val downsampled = Bitmap.createScaledBitmap(bitmap, (width * scale).toInt(), (height * scale).toInt(), false)
-        val dWidth = downsampled.width
-        val dHeight = downsampled.height
+        // 1. Downsample for fast processing (scale to width = 80, height = 80)
+        val targetGridSize = 80
+        val scale = targetGridSize.toFloat() / maxOf(width, height)
+        val dWidth = (width * scale).toInt().coerceAtLeast(10)
+        val dHeight = (height * scale).toInt().coerceAtLeast(10)
+        val downsampled = Bitmap.createScaledBitmap(bitmap, dWidth, dHeight, false)
         
         val pixels = IntArray(dWidth * dHeight)
         downsampled.getPixels(pixels, 0, dWidth, 0, 0, dWidth, dHeight)
         
+        // Calculate average luminance of the image
         var sum = 0.0
         for (p in pixels) {
             val r = (p shr 16) and 0xFF
@@ -445,64 +448,170 @@ class ImageProcessor @Inject constructor() {
         }
         val avgBrightness = sum / pixels.size
         
-        val paperPoints = mutableListOf<PointF>()
+        // 2. Identify candidate paper pixels (light colors, low saturation)
+        val binaryGrid = BooleanArray(dWidth * dHeight)
         val hsv = FloatArray(3)
         for (y in 0 until dHeight) {
             for (x in 0 until dWidth) {
-                val p = pixels[y * dWidth + x]
+                val idx = y * dWidth + x
+                val p = pixels[idx]
                 val r = (p shr 16) and 0xFF
                 val g = (p shr 8) and 0xFF
                 val b = p and 0xFF
                 val brightness = (0.299 * r + 0.587 * g + 0.114 * b)
                 
-                if (brightness > avgBrightness * 0.85 && brightness > 70) {
+                // Paper is bright (> 82% of average and > 70 absolute) and has low saturation (< 0.45)
+                if (brightness > avgBrightness * 0.82 && brightness > 70) {
                     Color.RGBToHSV(r, g, b, hsv)
-                    if (hsv[1] < 0.40) {
-                        paperPoints.add(PointF(x / scale, y / scale))
+                    if (hsv[1] < 0.45f) {
+                        binaryGrid[idx] = true
+                    }
+                }
+            }
+        }
+        downsampled.recycle()
+        
+        // 3. Find the single largest connected component of paper candidate pixels
+        val visited = java.util.BitSet(dWidth * dHeight)
+        var largestComponentList = emptyList<PointF>()
+        
+        for (y in 0 until dHeight) {
+            for (x in 0 until dWidth) {
+                val startIdx = y * dWidth + x
+                if (binaryGrid[startIdx] && !visited.get(startIdx)) {
+                    val component = mutableListOf<PointF>()
+                    val queue = java.util.ArrayDeque<Int>()
+                    
+                    queue.add(startIdx)
+                    visited.set(startIdx)
+                    
+                    while (queue.isNotEmpty()) {
+                        val curr = queue.poll() ?: break
+                        val cx = curr % dWidth
+                        val cy = curr / dWidth
+                        component.add(PointF(cx / scale, cy / scale)) // Scale back immediately
+                        
+                        // Check 8-connected neighbors
+                        for (dy in -1..1) {
+                            for (dx in -1..1) {
+                                if (dx == 0 && dy == 0) continue
+                                val nx = cx + dx
+                                val ny = cy + dy
+                                if (nx in 0 until dWidth && ny in 0 until dHeight) {
+                                    val nIdx = ny * dWidth + nx
+                                    if (binaryGrid[nIdx] && !visited.get(nIdx)) {
+                                        visited.set(nIdx)
+                                        queue.add(nIdx)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (component.size > largestComponentList.size) {
+                        largestComponentList = component
                     }
                 }
             }
         }
         
-        downsampled.recycle()
-        
+        // 4. Default corner fallback (90% boundary)
         val margin = 50f
         val defaultTL = PointF(margin, margin)
         val defaultTR = PointF(width - margin, margin)
         val defaultBL = PointF(margin, height - margin)
         val defaultBR = PointF(width - margin, height - margin)
         
-        if (paperPoints.size < 100) {
+        // If largest component is suspiciously small (< 8% of downsampled grid area), reject and use fallback
+        val gridArea = dWidth * dHeight
+        val minComponentSize = (gridArea * 0.08).toInt()
+        
+        if (largestComponentList.size < minComponentSize) {
             return CornerPoints(defaultTL, defaultTR, defaultBL, defaultBR, false)
         }
         
-        val tl = paperPoints.minByOrNull { it.x + it.y } ?: defaultTL
-        val tr = paperPoints.maxByOrNull { it.x - it.y } ?: defaultTR
-        val bl = paperPoints.minByOrNull { it.x - it.y } ?: defaultBL
-        val br = paperPoints.maxByOrNull { it.x + it.y } ?: defaultBR
+        // 5. Extract rough corners from the largest component
+        var tl = largestComponentList.minByOrNull { it.x + it.y } ?: defaultTL
+        var tr = largestComponentList.maxByOrNull { it.x - it.y } ?: defaultTR
+        var bl = largestComponentList.minByOrNull { it.x - it.y } ?: defaultBL
+        var br = largestComponentList.maxByOrNull { it.x + it.y } ?: defaultBR
         
+        // Create mutable points for refinement
+        val tlRefined = PointF(tl.x, tl.y)
+        val trRefined = PointF(tr.x, tr.y)
+        val blRefined = PointF(bl.x, bl.y)
+        val brRefined = PointF(br.x, br.y)
+        
+        // 6. Validate the detected corners
         val area = 0.5f * abs(
-            (tl.x * tr.y - tr.x * tl.y) +
-            (tr.x * br.y - br.x * tr.y) +
-            (br.x * bl.y - bl.x * br.y) +
-            (bl.x * tl.y - tl.x * bl.y)
+            (tlRefined.x * trRefined.y - trRefined.x * tlRefined.y) +
+            (trRefined.x * brRefined.y - brRefined.x * trRefined.y) +
+            (brRefined.x * blRefined.y - blRefined.x * brRefined.y) +
+            (blRefined.x * tlRefined.y - tlRefined.x * blRefined.y)
         )
         val totalArea = width * height
         val areaRatio = area / totalArea
         
-        val isDistinct = (tr.x - tl.x > width * 0.25f) &&
-                         (br.x - bl.x > width * 0.25f) &&
-                         (bl.y - tl.y > height * 0.25f) &&
-                         (br.y - tr.y > height * 0.25f)
-                         
-        val isHighConfidence = areaRatio in 0.35f..0.98f && isDistinct
+        // Aspect Ratio validation
+        val quadW = (trRefined.x - tlRefined.x + brRefined.x - blRefined.x) / 2f
+        val quadH = (blRefined.y - tlRefined.y + brRefined.y - trRefined.y) / 2f
+        val aspectRatio = if (quadH > 0) quadW / quadH else 0f
         
-        return CornerPoints(tl, tr, bl, br, isHighConfidence)
+        val isAspectRatioValid = if (isLandscape) {
+            // Landscape expects width > height: aspect ratio w/h between 1.0 and 2.2
+            aspectRatio in 1.0f..2.2f
+        } else {
+            // Portrait expects height > width: aspect ratio h/w between 1.0 and 2.2 (so w/h between 0.45 and 1.0)
+            aspectRatio in 0.45f..1.0f
+        }
+        
+        val isDistinct = (trRefined.x - tlRefined.x > width * 0.25f) &&
+                         (brRefined.x - blRefined.x > width * 0.25f) &&
+                         (blRefined.y - tlRefined.y > height * 0.25f) &&
+                         (brRefined.y - trRefined.y > height * 0.25f)
+                         
+        val isHighConfidence = areaRatio in 0.25f..0.98f && isDistinct && isAspectRatioValid
+        
+        // 7. Auto-Expand: if boundaries are close to borders, expand them fully
+        val borderMarginX = width * 0.05f
+        val borderMarginY = height * 0.05f
+        
+        if (tlRefined.x < borderMarginX && blRefined.x < borderMarginX) {
+            tlRefined.x = 0f
+            blRefined.x = 0f
+        }
+        if (trRefined.x > width - borderMarginX && brRefined.x > width - borderMarginX) {
+            trRefined.x = width
+            brRefined.x = width
+        }
+        if (tlRefined.y < borderMarginY && trRefined.y < borderMarginY) {
+            tlRefined.y = 0f
+            trRefined.y = 0f
+        }
+        if (blRefined.y > height - borderMarginY && brRefined.y > height - borderMarginY) {
+            blRefined.y = height
+            brRefined.y = height
+        }
+        
+        // 8. Smart Fallback if low confidence: use conservative crop of 97% margins
+        return if (isHighConfidence) {
+            CornerPoints(tlRefined, trRefined, blRefined, brRefined, true)
+        } else {
+            val marginX = width * 0.03f
+            val marginY = height * 0.03f
+            CornerPoints(
+                PointF(marginX, marginY),
+                PointF(width - marginX, marginY),
+                PointF(marginX, height - marginY),
+                PointF(width - marginX, height - marginY),
+                false
+            )
+        }
     }
 
-    fun cropAndWarpPerspective(bitmap: Bitmap, corners: CornerPoints): Bitmap {
-        val targetWidth = Constants.PROCESSED_IMAGE_WIDTH
-        val targetHeight = (targetWidth * 1.414).toInt() // A4 Aspect Ratio 1200x1696
+    fun cropAndWarpPerspective(bitmap: Bitmap, corners: CornerPoints, isLandscape: Boolean = false): Bitmap {
+        val baseSize = Constants.PROCESSED_IMAGE_WIDTH
+        val targetWidth = if (isLandscape) (baseSize * 1.414).toInt() else baseSize
+        val targetHeight = if (isLandscape) baseSize else (baseSize * 1.414).toInt()
         
         val srcPoints = floatArrayOf(
             corners.topLeft.x, corners.topLeft.y,

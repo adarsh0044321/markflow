@@ -82,7 +82,7 @@ class ScanRepository @Inject constructor(
 
         // 1. Process image (warp perspective if corners are provided or automatically detected with high confidence)
         val processed = if (isPreProcessed) {
-            bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, true)
+            bitmap
         } else {
             val finalCorners = corners ?: imageProcessor.detectPaperCorners(bitmap)
             if (finalCorners.isHighConfidence || corners != null) {
@@ -388,7 +388,9 @@ class ScanRepository @Inject constructor(
         // 14. Recalculate copy stats
         copyDao.recalculateCopyStats(copyId)
 
-        processed.recycle()
+        if (!isPreProcessed) {
+            processed.recycle()
+        }
 
         val processingTime = System.currentTimeMillis() - startTime
         return@withContext PageProcessingResult(

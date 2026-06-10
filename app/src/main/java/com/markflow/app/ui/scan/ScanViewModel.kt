@@ -12,6 +12,7 @@ import com.markflow.app.data.repository.CopyRepository
 import com.markflow.app.data.repository.ScanRepository
 import com.markflow.app.domain.model.*
 import com.markflow.app.data.repository.SettingsRepository
+import com.markflow.app.ml.DigitRecognizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -32,18 +33,40 @@ class ScanViewModel @Inject constructor(
     private val copyRepository: CopyRepository,
     private val pageChangeDetector: PageChangeDetector,
     private val settingsRepository: SettingsRepository,
-    private val imageProcessor: ImageProcessor
+    private val imageProcessor: ImageProcessor,
+    private val digitRecognizer: DigitRecognizer
 ) : ViewModel() {
 
     private var isAutoCaptureEnabled = true
     private val activeProcessingJobs = ConcurrentHashMap<String, Job>()
     private var lastCaptureTimestamp = 0L
 
+    private val _isExportMode = MutableStateFlow(false)
+    val isExportMode: StateFlow<Boolean> = _isExportMode.asStateFlow()
+
     init {
         viewModelScope.launch {
             settingsRepository.autoCaptureFlow.collect {
                 isAutoCaptureEnabled = it
             }
+        }
+        viewModelScope.launch(Dispatchers.Default) {
+            digitRecognizer.initialize()
+        }
+    }
+
+    val answerSheetOrientation: StateFlow<String> = settingsRepository.answerSheetOrientationFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = "portrait"
+        )
+
+    fun toggleOrientation() {
+        viewModelScope.launch {
+            val newOrientation = if (answerSheetOrientation.value == "portrait") "landscape" else "portrait"
+            settingsRepository.setAnswerSheetOrientation(newOrientation)
+            addStatusMessage("Switched to $newOrientation mode")
         }
     }
 
@@ -156,6 +179,7 @@ class ScanViewModel @Inject constructor(
     fun initialize(sessionId: Long, copyId: Long) {
         currentSessionId = sessionId
         currentCopyId = copyId
+        _isExportMode.value = false
         scanRepository.resetPageDetection()
         _lastScanQuality.value = null
         _capturedPages.value = emptyList()
@@ -194,6 +218,10 @@ class ScanViewModel @Inject constructor(
      * Process a camera frame for page change detection.
      */
     fun processFrame(frame: Bitmap) {
+        if (_isExportMode.value) {
+            frame.recycle()
+            return
+        }
         try {
             // Cache the latest frame for manual capture
             synchronized(this) {
@@ -207,7 +235,7 @@ class ScanViewModel @Inject constructor(
             if (now - lastCaptureTimestamp < 800) return
 
             // Update live corners flow on the analysis thread (realtime)
-            val corners = imageProcessor.detectPaperCorners(frame)
+            val corners = imageProcessor.detectPaperCorners(frame, answerSheetOrientation.value == "landscape")
             _liveCorners.value = corners
             _liveCornersSize.value = android.util.Size(frame.width, frame.height)
 
@@ -342,7 +370,7 @@ class ScanViewModel @Inject constructor(
                 }
 
                 // 2. Detect corners and run quality analysis on the bitmap
-                val corners = imageProcessor.detectPaperCorners(bitmap)
+                val corners = imageProcessor.detectPaperCorners(bitmap, answerSheetOrientation.value == "landscape")
                 val quality = imageProcessor.calculateScanQuality(bitmap)
 
                 // Recycle the bitmap since we've saved it and run calculations
@@ -364,7 +392,7 @@ class ScanViewModel @Inject constructor(
                 val rawBitmap = BitmapFactory.decodeFile(rawPath)
                     ?: throw java.io.IOException("Failed to decode raw bitmap")
 
-                var processed = imageProcessor.cropAndWarpPerspective(rawBitmap, corners)
+                var processed = imageProcessor.cropAndWarpPerspective(rawBitmap, corners, answerSheetOrientation.value == "landscape")
 
                 // 5. Commit to repository/DB (runs Perspect Warp, OCR, DB insertion)
                 val result = scanRepository.processCapture(processed, currentCopyId, corners = null, isPreProcessed = true)
@@ -459,7 +487,7 @@ class ScanViewModel @Inject constructor(
                     ?: throw java.io.IOException("Failed to decode raw bitmap")
 
                 // 3. Perspective warp using staging corners
-                var processed = imageProcessor.cropAndWarpPerspective(rawBitmap, page.corners)
+                var processed = imageProcessor.cropAndWarpPerspective(rawBitmap, page.corners, answerSheetOrientation.value == "landscape")
 
                 // 4. Rotate bitmap if needed
                 if (page.rotationDegrees != 0f) {
@@ -562,7 +590,7 @@ class ScanViewModel @Inject constructor(
                 // Recalculate scan quality for new corners
                 val rawBitmap = BitmapFactory.decodeFile(page.rawImagePath)
                 val quality = if (rawBitmap != null) {
-                    val warped = imageProcessor.cropAndWarpPerspective(rawBitmap, corners)
+                    val warped = imageProcessor.cropAndWarpPerspective(rawBitmap, corners, answerSheetOrientation.value == "landscape")
                     val q = imageProcessor.calculateScanQuality(warped)
                     warped.recycle()
                     rawBitmap.recycle()
@@ -720,7 +748,7 @@ class ScanViewModel @Inject constructor(
             isHighConfidence = page.corners.isHighConfidence
         )
         
-        var warped = imageProcessor.cropAndWarpPerspective(raw, scaledCorners)
+        var warped = imageProcessor.cropAndWarpPerspective(raw, scaledCorners, answerSheetOrientation.value == "landscape")
         raw.recycle()
         
         if (page.rotationDegrees != 0f) {
@@ -760,6 +788,16 @@ class ScanViewModel @Inject constructor(
             }
             return
         }
+
+        _isExportMode.value = true
+        synchronized(this) {
+            latestFrame?.recycle()
+            latestFrame = null
+        }
+        _liveCorners.value = null
+        _liveCornersSize.value = null
+        _cropState.value = null
+        digitRecognizer.close()
 
         viewModelScope.launch {
             _showFinalizeProgress.value = true

@@ -14,12 +14,24 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.markflow.app.data.repository.SettingsRepository
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val copyRepository: CopyRepository,
     private val scanRepository: ScanRepository,
-    private val reportGenerator: ReportGenerator
+    private val reportGenerator: ReportGenerator,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    val isOrientationSet: StateFlow<Boolean> = settingsRepository.isOrientationSetFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setAnswerSheetOrientation(orientation: String) {
+        viewModelScope.launch {
+            settingsRepository.setAnswerSheetOrientation(orientation)
+        }
+    }
 
     val recentCopies: StateFlow<List<Copy>> = copyRepository
         .getRecentCopies(10)

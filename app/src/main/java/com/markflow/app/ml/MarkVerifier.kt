@@ -10,6 +10,8 @@ import com.markflow.app.domain.model.MarkStatus
 import com.markflow.app.domain.model.VerificationResult
 import com.markflow.app.util.BitmapUtils
 import com.markflow.app.util.Constants
+import com.markflow.app.data.repository.SettingsRepository
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,7 +36,8 @@ class MarkVerifier @Inject constructor(
     private val imageProcessor: ImageProcessor,
     private val ocrProcessor: OcrProcessor,
     private val digitRecognizer: DigitRecognizer,
-    private val confidenceCalculator: ConfidenceCalculator
+    private val confidenceCalculator: ConfidenceCalculator,
+    private val settingsRepository: SettingsRepository
 ) {
 
     data class VerificationPipelineResult(
@@ -62,6 +65,14 @@ class MarkVerifier @Inject constructor(
         val startTime = System.currentTimeMillis()
         val detectedMarks = mutableListOf<DetectedMark>()
 
+        // Load settings
+        val orientation = settingsRepository.answerSheetOrientationFlow.firstOrNull() ?: "portrait"
+        val isLandscapeSheet = orientation == "landscape"
+        
+        val defaultQuestionMaxMarks = settingsRepository.defaultQuestionMarksFlow.firstOrNull()?.toDoubleOrNull() ?: 5.0
+        val limitMin = settingsRepository.markRecognitionLimitMinFlow.firstOrNull()?.toDoubleOrNull() ?: 0.0
+        val limitMax = settingsRepository.markRecognitionLimitMaxFlow.firstOrNull()?.toDoubleOrNull() ?: 10.0
+
         // Step 1: Detect page (Skipped here as validation is already handled in ScanRepository)
 
         // ═══ Stage 1: Computer Vision ═══
@@ -74,11 +85,18 @@ class MarkVerifier @Inject constructor(
             val innerBb = contourAnalyzer.getInnerBoundingBox(contour)
             val targetBb = innerBb ?: bb
 
+            // Better handling of marks written near page edges (Expanded padding safety margin)
+            val safetyMargin = if (isLandscapeSheet) 25 else Constants.EVIDENCE_CROP_PADDING
+            val edgeX = Math.max(0, targetBb.x - safetyMargin)
+            val edgeY = Math.max(0, targetBb.y - safetyMargin)
+            val edgeWidth = Math.min(pageImage.width - edgeX, targetBb.width + safetyMargin * 2)
+            val edgeHeight = Math.min(pageImage.height - edgeY, targetBb.height + safetyMargin * 2)
+
             // Crop the region from the original image
             val crop = BitmapUtils.cropRegion(
                 pageImage,
-                targetBb.x, targetBb.y, targetBb.width, targetBb.height,
-                Constants.EVIDENCE_CROP_PADDING
+                edgeX, edgeY, edgeWidth, edgeHeight,
+                0
             )
 
             // ═══ Stage 2: OCR (Multiple Preprocessing Passes) ═══
@@ -86,7 +104,34 @@ class MarkVerifier @Inject constructor(
             val candidatesValues = mutableMapOf<Double, String>()
 
             // Pass 1: Raw Crop OCR
-            val ocrRaw = ocrProcessor.recognizeText(crop)
+            var ocrRaw = ocrProcessor.recognizeText(crop)
+            
+            // Landscape orientation-aware rotation correction before OCR
+            if (isLandscapeSheet && ocrRaw.numericValue == null) {
+                val rotations = listOf(90f, 180f, 270f)
+                var bestOcrResult: OcrProcessor.OcrResult? = null
+                var bestRotatedBitmap: Bitmap? = null
+                for (angle in rotations) {
+                    val rotated = imageProcessor.rotateBitmap(crop, angle)
+                    val rotatedOcr = ocrProcessor.recognizeText(rotated)
+                    if (rotatedOcr.numericValue != null) {
+                        if (bestOcrResult == null || rotatedOcr.confidence > bestOcrResult.confidence) {
+                            bestOcrResult = rotatedOcr
+                            bestRotatedBitmap?.recycle()
+                            bestRotatedBitmap = rotated
+                        } else {
+                            rotated.recycle()
+                        }
+                    } else {
+                        rotated.recycle()
+                    }
+                }
+                if (bestOcrResult != null) {
+                    ocrRaw = bestOcrResult
+                    bestRotatedBitmap?.recycle() // we keep original crop as the image reference
+                }
+            }
+
             ocrRaw.numericValue?.let {
                 candidatesList.add(ocrRaw.displayValue)
                 candidatesValues[it] = ocrRaw.displayValue
@@ -142,7 +187,6 @@ class MarkVerifier @Inject constructor(
             val isMargin = bb.x < 250 || bb.x > 950
 
             // If a region has special visual structures (circled, boxed, underlined) or has a detected value, we keep it.
-            // A plain margin location is only kept if it actually has a detected value.
             val shouldKeep = isCircled || isUnderlined || hasValue
 
             if (!shouldKeep) {
@@ -157,13 +201,13 @@ class MarkVerifier @Inject constructor(
             val cvValue = estimateValueFromContour(contour)
             val cvConfidence = if (cvValue != null) 0.5 else 0.0
             
-            val finalVal = when {
+            var finalVal = when {
                 ocrResult.numericValue != null -> ocrResult.numericValue!!
                 aiResult?.first != null -> aiResult.first!!
                 candidatesValues.isNotEmpty() -> candidatesValues.keys.first()
                 else -> 0.0
             }
-            val finalDisplayVal = when {
+            var finalDisplayVal = when {
                 ocrResult.numericValue != null -> ocrResult.displayValue
                 aiResult?.first != null -> aiResult.first!!.toCleanString()
                 candidatesValues.isNotEmpty() -> candidatesValues.values.first()
@@ -172,6 +216,18 @@ class MarkVerifier @Inject constructor(
 
             val isOverwritten = detectOverwriting(crop)
             val regionType = classifyRegion(ocrResult.rawText, bb, contour)
+
+            // ── Smart Mark Recognition Validation ──
+            // Enforce whole numbers or .5 increments only, and bounds (0.0 to defaultQuestionMaxMarks)
+            val isHalfIncrement = Math.abs(Math.round(finalVal * 2.0) - (finalVal * 2.0)) < 1e-9
+            val isWithinBounds = finalVal >= limitMin && finalVal <= defaultQuestionMaxMarks
+            val isValValid = isHalfIncrement && isWithinBounds && hasValue
+
+            if (!isValValid && regionType == "awarded_mark") {
+                // Reject impossible or out-of-bounds mark configurations
+                finalVal = 0.0
+                finalDisplayVal = "?"
+            }
 
             // Detection reason construction
             val reasons = mutableListOf<String>()
@@ -221,6 +277,12 @@ class MarkVerifier @Inject constructor(
                 }
             }
 
+            // Apply penalty if value was overridden due to invalid validation
+            if (!isValValid && regionType == "awarded_mark") {
+                finalConfidence = 0.1
+                reasons.add("⚠ Invalid Format/Max Marks")
+            }
+
             val detectionReason = reasons.joinToString(", ")
 
             // Determine status
@@ -229,11 +291,11 @@ class MarkVerifier @Inject constructor(
                 regionType == "page_number" || regionType == "student_roll_number" || regionType == "answer_content" -> {
                     MarkStatus.IGNORED
                 }
-                !hasValue -> {
-                    MarkStatus.NEEDS_REVIEW // Unreadable Candidate (Blue)
+                !hasValue || !isValValid -> {
+                    MarkStatus.NEEDS_REVIEW // Unreadable/Invalid Candidate (Blue/Yellow)
                 }
                 isOverwritten || finalConfidence < 0.90 -> {
-                    MarkStatus.NEEDS_REVIEW // Needs review (Yellow or Red)
+                    MarkStatus.NEEDS_REVIEW // Needs review
                 }
                 else -> {
                     MarkStatus.CONFIRMED // Confirmed (Green)

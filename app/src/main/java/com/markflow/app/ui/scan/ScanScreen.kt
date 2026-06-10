@@ -71,6 +71,7 @@ fun ScanScreen(
     val scanState by viewModel.scanState.collectAsStateWithLifecycle()
     val markFeed by viewModel.markFeed.collectAsStateWithLifecycle()
     val runningTotal by viewModel.runningTotal.collectAsStateWithLifecycle()
+    val answerSheetOrientation by viewModel.answerSheetOrientation.collectAsStateWithLifecycle()
     val pageCount by viewModel.pageCount.collectAsStateWithLifecycle()
     val statusMessages by viewModel.statusMessages.collectAsStateWithLifecycle()
     val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
@@ -78,6 +79,7 @@ fun ScanScreen(
     val lastScanQuality by viewModel.lastScanQuality.collectAsStateWithLifecycle()
     val showFinalizeProgress by viewModel.showFinalizeProgress.collectAsStateWithLifecycle()
     val finalizeProgressMessage by viewModel.finalizeProgressMessage.collectAsStateWithLifecycle()
+    val isExportMode by viewModel.isExportMode.collectAsStateWithLifecycle()
 
     val duplicateDialogState by viewModel.duplicateDialog.collectAsStateWithLifecycle()
     val missingPageDialogState by viewModel.missingPageDialog.collectAsStateWithLifecycle()
@@ -307,6 +309,14 @@ fun ScanScreen(
                             tint = tint
                         )
                     }
+                    IconButton(onClick = { viewModel.toggleOrientation() }) {
+                        val icon = if (answerSheetOrientation == "landscape") Icons.Filled.CropLandscape else Icons.Filled.CropPortrait
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = "Toggle Orientation",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { showDetectionPanel = !showDetectionPanel }) {
                         Icon(Icons.Filled.Tune, "Detection panel")
                     }
@@ -353,14 +363,25 @@ fun ScanScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                CameraPreviewView(
-                    flashMode = flashMode,
-                    isDark = isDark,
-                    onFrameAvailable = { bitmap ->
-                        viewModel.processFrame(bitmap)
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (!isExportMode) {
+                    CameraPreviewView(
+                        flashMode = flashMode,
+                        isDark = isDark,
+                        onFrameAvailable = { bitmap ->
+                            viewModel.processFrame(bitmap)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Export Mode - Camera Off", color = Color.White)
+                    }
+                }
 
                 // ── Digital Spirit Level ──
                 SpiritLevel(
@@ -912,6 +933,32 @@ fun PageReviewDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    if (!page.corners.isHighConfidence) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = "Warning",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Manual Adjustment Recommended (Page boundaries low confidence)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = "Scan Quality: ${page.quality.rating} (Score: ${page.quality.score}%)",
                         style = MaterialTheme.typography.titleSmall,
@@ -1005,6 +1052,23 @@ fun CameraPreviewView(
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
     var cameraReference by remember { mutableStateOf<Camera?>(null) }
+    var cameraProviderRef by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                executor.shutdown()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            try {
+                cameraProviderRef?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            android.util.Log.d("MarkFlow", "Camera released and unbindAll called.")
+        }
+    }
 
     val shouldTorchBeOn = when (flashMode) {
         FlashMode.ON -> true
@@ -1037,6 +1101,7 @@ fun CameraPreviewView(
             cameraProviderFuture.addListener({
                 try {
                     val cameraProvider = cameraProviderFuture.get()
+                    cameraProviderRef = cameraProvider
 
                     val preview = Preview.Builder()
                         .build()

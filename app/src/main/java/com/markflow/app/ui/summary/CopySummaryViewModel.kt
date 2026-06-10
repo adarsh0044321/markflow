@@ -16,6 +16,12 @@ import javax.inject.Inject
 sealed interface ReportState {
     object Idle : ReportState
     object Loading : ReportState
+    data class LoadingProgress(
+        val progress: Float,
+        val currentPage: Int,
+        val totalPages: Int,
+        val estimatedTimeSeconds: Int
+    ) : ReportState
     data class Success(val file: File) : ReportState
     data class Error(val message: String) : ReportState
 }
@@ -54,6 +60,8 @@ class CopySummaryViewModel @Inject constructor(
     private val _reportState = MutableStateFlow<ReportState>(ReportState.Idle)
     val reportState: StateFlow<ReportState> = _reportState.asStateFlow()
 
+    private var exportJob: kotlinx.coroutines.Job? = null
+
     fun generateReport(
         studentName: String,
         rollNumber: String,
@@ -61,7 +69,8 @@ class CopySummaryViewModel @Inject constructor(
         className: String,
         section: String
     ) {
-        viewModelScope.launch {
+        exportJob?.cancel()
+        exportJob = viewModelScope.launch {
             _reportState.value = ReportState.Loading
             try {
                 copyRepository.updateCopyStudentDetails(
@@ -72,13 +81,32 @@ class CopySummaryViewModel @Inject constructor(
                     className = className.takeIf { it.isNotBlank() },
                     sec = section.takeIf { it.isNotBlank() }
                 )
-                val file = reportGenerator.generateCopyReport(copyId)
+                val file = reportGenerator.generateCopyReport(copyId, object : com.markflow.app.util.ExportProgressListener {
+                    override fun onProgress(currentPage: Int, totalPages: Int, progress: Float, estimatedTimeSeconds: Int): Boolean {
+                        _reportState.value = ReportState.LoadingProgress(
+                            progress = progress,
+                            currentPage = currentPage,
+                            totalPages = totalPages,
+                            estimatedTimeSeconds = estimatedTimeSeconds
+                        )
+                        return exportJob?.isActive == true
+                    }
+                })
                 _reportState.value = ReportState.Success(file)
             } catch (e: Exception) {
-                e.printStackTrace()
-                _reportState.value = ReportState.Error(e.message ?: "Failed to generate report")
+                if (e is kotlinx.coroutines.CancellationException) {
+                    _reportState.value = ReportState.Idle
+                } else {
+                    e.printStackTrace()
+                    _reportState.value = ReportState.Error(e.message ?: "Failed to generate report")
+                }
             }
         }
+    }
+
+    fun cancelExport() {
+        exportJob?.cancel()
+        _reportState.value = ReportState.Idle
     }
 
     fun resetReportState() {

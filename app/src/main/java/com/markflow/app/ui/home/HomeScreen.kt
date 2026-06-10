@@ -6,6 +6,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.res.painterResource
 import com.markflow.app.R
@@ -64,11 +65,28 @@ fun HomeScreen(
     val sessionCopies by viewModel.sessionCopies.collectAsStateWithLifecycle()
     val isCreating by viewModel.isCreatingScan.collectAsStateWithLifecycle()
     val reportState by viewModel.reportState.collectAsStateWithLifecycle()
+    val isOrientationSet by viewModel.isOrientationSet.collectAsStateWithLifecycle()
 
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showScanDetailsDialog by remember { mutableStateOf(false) }
     var selectedFolder by remember { mutableStateOf<ScanSession?>(null) }
     var copyToEdit by remember { mutableStateOf<Copy?>(null) }
+    var showOrientationOnboardingDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isOrientationSet) {
+        if (!isOrientationSet) {
+            showOrientationOnboardingDialog = true
+        }
+    }
+
+    if (showOrientationOnboardingDialog) {
+        OrientationOnboardingDialog(
+            onConfirm = { orientation ->
+                viewModel.setAnswerSheetOrientation(orientation)
+                showOrientationOnboardingDialog = false
+            }
+        )
+    }
 
     LaunchedEffect(reportState) {
         when (val state = reportState) {
@@ -900,4 +918,157 @@ private fun RecentCopyItem(
             }
         }
     }
+}
+
+@Composable
+fun OrientationOnboardingDialog(
+    onConfirm: (String) -> Unit
+) {
+    var selectedOrientation by remember { mutableStateOf("portrait") }
+
+    AlertDialog(
+        onDismissRequest = { /* Force selection on first launch */ },
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DocumentScanner,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Answer Sheet Orientation",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Welcome to MarkFlow! Please select the default orientation of your exam answer sheets. This helps optimize the auto-crop and layout detection.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Portrait Selection Card
+                Card(
+                    onClick = { selectedOrientation = "portrait" },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (selectedOrientation == "portrait") {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    ),
+                    border = BorderStroke(
+                        width = 2.dp,
+                        color = if (selectedOrientation == "portrait") {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CropPortrait,
+                            contentDescription = null,
+                            tint = if (selectedOrientation == "portrait") {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Portrait Orientation",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Standard school/college answer sheets",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Landscape Selection Card
+                Card(
+                    onClick = { selectedOrientation = "landscape" },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (selectedOrientation == "landscape") {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    ),
+                    border = BorderStroke(
+                        width = 2.dp,
+                        color = if (selectedOrientation == "landscape") {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CropLandscape,
+                            contentDescription = null,
+                            tint = if (selectedOrientation == "landscape") {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Landscape Orientation",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "CBSE-style or wide answer sheets",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(selectedOrientation) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Get Started", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    )
 }

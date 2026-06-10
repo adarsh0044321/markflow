@@ -11,7 +11,7 @@ This document outlines the planned development path for **MarkFlow**. Milestones
 | **v1.0.0** | Core Release | Perspective deskew, adaptive binarization, digit OCR, PDF reports | Q2 2026 | **Released** |
 | **v1.1.0** | Precision & Scanner | Robust light-invariant edge tracking, higher OCR resolution matrices | Q3 2026 | **Released** |
 | **v1.2.0** | Batch Evaluation | Folder scanning, multi-page document packages, quick grading templates | Q4 2026 | **Released** |
-| **v2.0.0** | Intelligent OCR | Advanced handwriting recognition (HTR), automated sum validations | Q2 2027 | *Researching* |
+| **v2.0.0** | Performance & Evaluation | Camera shutdown on export, annotation toolbox, step marks dialogs, settings overhaul | Q2 2026 | **Released** |
 | **v3.0.0** | Cloud Ecosystem | Real-time teacher dashboards, secure cloud sync, student analytics | Q4 2027 | *Future Vision* |
 
 ---
@@ -35,10 +35,14 @@ This document outlines the planned development path for **MarkFlow**. Milestones
 *   **Batch Scanning Mode**: Rapid capture queue that saves images instantly and processes JNI OpenCV warps in a background coroutine pool.
 *   **Excel/CSV Bulk Exports**: Bulk csv and xlsx exports for school database integrations.
 
-### 🔴 v2.0.0 — Machine Learning & Intelligent Automation
-*   **AI Handwriting Recognition (HTR)**: Transition from simple digit parsing to full word evaluation and handwritten comment transcripts.
-*   **Automated Sum Verification**: Automatically calculate question sub-scores and verify if they mathematically equal the teacher's hand-written final sum.
-*   **Model Expansion**: On-device quantization updates for the TFLite models to support sub-100ms inference times on budget devices.
+### 🔴 v2.0.0 — Performance, Evaluation Toolbox & Manual Review Overhaul (Current)
+*   **Camera Shutdown on Export**: Immediately releases camera session, preview, frame analysis, and ML resources when "Finalize Copy" is tapped. Prevents overheating and battery drain.
+*   **Floating Annotation Toolbox**: 9 one-tap annotation tools (Tick, Cross, Double Tick, Blank Page, Underline, Circle, Pen, Question Number) with size slider and persistent bitmap rendering.
+*   **Sequential Step & Final Marks Dialogs**: Step-by-step mark breakdown with auto-calculated subtotals, override toggle, and strict `0.5` increment validation.
+*   **Settings Screen Overhaul**: Explicit save button, pending state dirty tracking, input validation, and back-navigation confirmation dialog.
+*   **Smart Mark Recognition**: Strict `.5` increment enforcement, max mark bounds checking, and landscape rotation correction for OCR.
+*   **Swipe Navigation**: Horizontal swipe between questions/marks across pages with auto-focus keyboard support.
+*   **Memory Safety**: Bitmap recycling, ML interpreter cleanup, and executor shutdown on composition removal.
 
 ### 🟣 v3.0.0 — Centralized Portal & Dashboard
 *   **Secure Cloud Sync**: End-to-end encrypted backup of evaluation sheets and metrics.
