@@ -186,8 +186,8 @@ class MarkVerifier @Inject constructor(
             val isUnderlined = isUnderlined(contour)
             val isMargin = bb.x < 250 || bb.x > 950
 
-            // If a region has special visual structures (circled, boxed, underlined) or has a detected value, we keep it.
-            val shouldKeep = isCircled || isUnderlined || hasValue
+            // Filter out non-mark candidates: discard ticks, crosses, underlines, scribbles with no digits (unless circled)
+            val shouldKeep = isCircled || hasValue
 
             if (!shouldKeep) {
                 crop.recycle()
@@ -199,41 +199,58 @@ class MarkVerifier @Inject constructor(
 
             // Stage 1 result: estimate from contour properties
             val cvValue = estimateValueFromContour(contour)
-            val cvConfidence = if (cvValue != null) 0.5 else 0.0
-            
-            var finalVal = when {
-                ocrResult.numericValue != null -> ocrResult.numericValue!!
-                aiResult?.first != null -> aiResult.first!!
-                candidatesValues.isNotEmpty() -> candidatesValues.keys.first()
-                else -> 0.0
-            }
-            var finalDisplayVal = when {
+            val aiVal = aiResult?.first
+
+            val initialDisplayVal = when {
                 ocrResult.numericValue != null -> ocrResult.displayValue
-                aiResult?.first != null -> aiResult.first!!.toCleanString()
+                aiVal != null -> aiVal.toCleanString()
                 candidatesValues.isNotEmpty() -> candidatesValues.values.first()
                 else -> "Unreadable"
             }
+
+            // Calculate base confidence and consensus value using ConfidenceCalculator
+            val combinedResult = confidenceCalculator.calculateCombinedConfidence(
+                cvValue = cvValue,
+                cvConfidence = if (cvValue != null) 0.5 else null,
+                ocrValue = ocrResult.numericValue,
+                ocrConfidence = if (ocrResult.numericValue != null) ocrResult.confidence else null,
+                aiValue = aiVal,
+                aiConfidence = if (aiVal != null) aiResult.second else null,
+                displayValue = initialDisplayVal
+            )
+
+            var finalVal = combinedResult.finalValue
+            var finalDisplayVal = combinedResult.finalDisplayValue
+            var finalConfidence = combinedResult.finalConfidence
 
             val isOverwritten = detectOverwriting(crop)
             val regionType = classifyRegion(ocrResult.rawText, bb, contour)
 
             // ── Smart Mark Recognition Validation ──
-            // Enforce whole numbers or .5 increments only, and bounds (0.0 to defaultQuestionMaxMarks)
+            // Enforce whole numbers or .5 increments only, and bounds (limitMin to defaultQuestionMaxMarks)
             val isHalfIncrement = Math.abs(Math.round(finalVal * 2.0) - (finalVal * 2.0)) < 1e-9
             val isWithinBounds = finalVal >= limitMin && finalVal <= defaultQuestionMaxMarks
             val isValValid = isHalfIncrement && isWithinBounds && hasValue
-
-            if (!isValValid && regionType == "awarded_mark") {
-                // Reject impossible or out-of-bounds mark configurations
-                finalVal = 0.0
-                finalDisplayVal = "?"
-            }
 
             // Detection reason construction
             val reasons = mutableListOf<String>()
             reasons.add("✓ Red Ink")
 
-            var finalConfidence: Double
+            if (combinedResult.agreementLevel == ConfidenceCalculator.AgreementLevel.FULL_AGREEMENT) {
+                reasons.add("Consensus Agreement")
+            } else if (combinedResult.agreementLevel == ConfidenceCalculator.AgreementLevel.MAJORITY_AGREEMENT) {
+                reasons.add("Majority Agreement")
+            } else if (combinedResult.agreementLevel == ConfidenceCalculator.AgreementLevel.DISAGREEMENT) {
+                reasons.add("Disagreement Conflict")
+            }
+
+            if (ocrResult.numericValue != null) {
+                reasons.add("OCR Match (${ocrResult.displayValue})")
+            }
+            if (aiVal != null) {
+                reasons.add("AI Match (${aiVal.toCleanString()})")
+            }
+
             if (regionType == "question_number") {
                 finalConfidence = 0.1
                 reasons.add("Question Number")
@@ -244,41 +261,29 @@ class MarkVerifier @Inject constructor(
                 finalConfidence = 0.1
                 reasons.add("Page/Roll/Content")
             } else {
-                // Awarded mark or potential candidate
+                // Apply visual layout structure bonuses
                 if (isCircled) {
                     val aspectRatio = bb.width.toDouble() / bb.height
                     if (aspectRatio in 0.8..1.2) {
-                        finalConfidence = 0.99
-                        reasons.add("✓ Circled")
+                        finalConfidence = (finalConfidence + 0.15).coerceIn(0.0, 0.99)
+                        reasons.add("Circled Layout")
                     } else {
-                        finalConfidence = 0.97
-                        reasons.add("✓ Boxed")
+                        finalConfidence = (finalConfidence + 0.10).coerceIn(0.0, 0.97)
+                        reasons.add("Boxed Layout")
                     }
                 } else if (isUnderlined) {
-                    finalConfidence = 0.96
-                    reasons.add("✓ Underlined")
+                    finalConfidence = (finalConfidence + 0.08).coerceIn(0.0, 0.96)
+                    reasons.add("Underlined Layout")
                 } else if (isMargin) {
-                    finalConfidence = 0.92
-                    reasons.add("✓ Margin Location")
-                } else if (ocrResult.rawText.startsWith("✓") || ocrResult.rawText.matches(Regex("(?i)^[vy/\\\\].*")) || 
-                           candidatesList.any { it.startsWith("✓") || it.matches(Regex("(?i)^[vy/\\\\].*")) }) {
-                    finalConfidence = 0.90
-                    reasons.add("✓ Tick + Number")
-                } else {
-                    finalConfidence = 0.75
-                    reasons.add("✓ Standalone Number")
-                }
-
-                if (ocrResult.numericValue != null) {
-                    reasons.add("✓ OCR Match")
-                }
-                if (aiResult?.first != null) {
-                    reasons.add("✓ AI Match")
+                    finalConfidence = (finalConfidence + 0.05).coerceIn(0.0, 0.92)
+                    reasons.add("Margin Zone")
                 }
             }
 
-            // Apply penalty if value was overridden due to invalid validation
             if (!isValValid && regionType == "awarded_mark") {
+                // Reject impossible or out-of-bounds mark configurations
+                finalVal = 0.0
+                finalDisplayVal = "?"
                 finalConfidence = 0.1
                 reasons.add("⚠ Invalid Format/Max Marks")
             }
@@ -292,13 +297,13 @@ class MarkVerifier @Inject constructor(
                     MarkStatus.IGNORED
                 }
                 !hasValue || !isValValid -> {
-                    MarkStatus.NEEDS_REVIEW // Unreadable/Invalid Candidate (Blue/Yellow)
+                    MarkStatus.NEEDS_REVIEW // Unreadable/Invalid Candidate
                 }
-                isOverwritten || finalConfidence < 0.90 -> {
+                isOverwritten || finalConfidence < Constants.CONFIDENCE_AUTO_CONFIRM -> {
                     MarkStatus.NEEDS_REVIEW // Needs review
                 }
                 else -> {
-                    MarkStatus.CONFIRMED // Confirmed (Green)
+                    MarkStatus.CONFIRMED // Confirmed
                 }
             }
 
@@ -314,7 +319,7 @@ class MarkVerifier @Inject constructor(
                     status = markStatus,
                     boundingBox = bb,
                     evidenceImagePath = evidencePath,
-                    cvResult = if (cvValue != null) VerificationResult(cvValue, cvConfidence) else null,
+                    cvResult = if (cvValue != null) VerificationResult(cvValue, 0.5) else null,
                     ocrResult = if (ocrResult.numericValue != null)
                         VerificationResult(ocrResult.numericValue, ocrResult.confidence) else null,
                     aiResult = if (aiResult != null)

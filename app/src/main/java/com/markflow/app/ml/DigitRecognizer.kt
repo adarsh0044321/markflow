@@ -104,30 +104,175 @@ class DigitRecognizer @Inject constructor(
      * @param bitmap The cropped image potentially containing multiple digits
      * @return The recognized numeric value and confidence, or null
      */
+    /**
+     * Recognize a multi-digit number from a cropped image.
+     * Attempts to segment individual digits and recognize each one.
+     * Supports decimal marks (e.g., "4.5").
+     *
+     * @param bitmap The cropped image potentially containing multiple digits
+     * @return The recognized numeric value and confidence, or null
+     */
     fun recognizeNumber(bitmap: Bitmap): Pair<Double?, Double>? {
         if (!isInitialized) return null
 
-        // For simple single-digit marks, use direct recognition
-        val singleResult = recognizeDigit(bitmap)
-        if (singleResult != null && singleResult.confidence > 0.5) {
-            return singleResult.digit.toDouble() to singleResult.confidence
+        // If the aspect ratio indicates a single narrow digit, recognize directly to avoid segmenting noise
+        val aspectRatio = bitmap.width.toDouble() / bitmap.height
+        if (aspectRatio < 0.8) {
+            val singleResult = recognizeDigit(bitmap)
+            if (singleResult != null && singleResult.confidence > 0.5) {
+                return singleResult.digit.toDouble() to singleResult.confidence
+            }
         }
 
-        // For multi-digit: try to segment and recognize each digit
-        val digits = segmentDigits(bitmap)
-        if (digits.isEmpty()) return null
+        val columns = segmentDigitsColumns(bitmap)
+        if (columns.isEmpty()) return null
 
-        val results = digits.mapNotNull { recognizeDigit(it) }
-        if (results.isEmpty()) return null
-
-        // Combine digits into a number
-        var number = 0.0
-        for (result in results) {
-            number = number * 10 + result.digit
+        if (columns.size == 1) {
+            val seg = columns[0]
+            val segBitmap = Bitmap.createBitmap(bitmap, seg.first, 0, seg.second - seg.first, bitmap.height)
+            val result = recognizeDigit(segBitmap)
+            segBitmap.recycle()
+            if (result != null) {
+                return result.digit.toDouble() to result.confidence
+            }
+            return null
         }
 
-        val avgConfidence = results.map { it.confidence }.average()
-        return number to avgConfidence
+        val segmentValues = mutableListOf<String>()
+        val confidences = mutableListOf<Double>()
+
+        for (i in columns.indices) {
+            val col = columns[i]
+            val segWidth = col.second - col.first
+
+            // Check if this segment represents a decimal dot
+            if (isDecimalDot(bitmap, col.first, col.second)) {
+                segmentValues.add(".")
+                continue
+            }
+
+            val segBitmap = Bitmap.createBitmap(bitmap, col.first, 0, segWidth, bitmap.height)
+            val result = recognizeDigit(segBitmap)
+            segBitmap.recycle()
+
+            if (result != null) {
+                segmentValues.add(result.digit.toString())
+                confidences.add(result.confidence)
+            }
+        }
+
+        if (segmentValues.isEmpty()) return null
+
+        // Reconstruct the decimal/integer number from segmented character strings
+        val sb = StringBuilder()
+        for (v in segmentValues) {
+            sb.append(v)
+        }
+        val numberStr = sb.toString()
+
+        val parsedVal = numberStr.toDoubleOrNull()
+        val avgConfidence = if (confidences.isNotEmpty()) confidences.average() else 0.5
+
+        if (parsedVal != null) {
+            return parsedVal to avgConfidence
+        }
+        return null
+    }
+
+    private fun Double.toCleanString(): String {
+        return if (this == this.toLong().toDouble()) {
+            this.toLong().toString()
+        } else {
+            String.format(java.util.Locale.US, "%.1f", this)
+        }
+    }
+
+    private fun segmentDigitsColumns(bitmap: Bitmap): List<Pair<Int, Int>> {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        var isBinaryMask = true
+        for (pixel in pixels) {
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            if ((r != 0 && r != 255) || (g != 0 && g != 255) || (b != 0 && b != 255)) {
+                isBinaryMask = false
+                break
+            }
+        }
+
+        val projection = IntArray(width)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                val pixel = pixels[y * width + x]
+                if (getRedness(pixel, isBinaryMask) > 0.15f) {
+                    projection[x]++
+                }
+            }
+        }
+
+        val segments = mutableListOf<Pair<Int, Int>>()
+        var inDigit = false
+        var segStart = 0
+
+        val threshold = maxOf(1.0, height * 0.03)
+        for (x in 0 until width) {
+            if (projection[x] >= threshold && !inDigit) {
+                segStart = x
+                inDigit = true
+            } else if (projection[x] < threshold && inDigit) {
+                segments.add(segStart to x)
+                inDigit = false
+            }
+        }
+        if (inDigit) segments.add(segStart to width)
+
+        return segments.filter { (start, end) -> (end - start) >= 3 }
+    }
+
+    private fun isDecimalDot(bitmap: Bitmap, startColumn: Int, endColumn: Int): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        var isBinaryMask = true
+        for (pixel in pixels) {
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            if ((r != 0 && r != 255) || (g != 0 && g != 255) || (b != 0 && b != 255)) {
+                isBinaryMask = false
+                break
+            }
+        }
+
+        var totalActivePixels = 0
+        var bottomActivePixels = 0
+        val bottomThreshold = (height * 0.65).toInt() // Bottom 35% of the crop
+
+        for (x in startColumn until endColumn) {
+            for (y in 0 until height) {
+                val pixel = pixels[y * width + x]
+                if (getRedness(pixel, isBinaryMask) > 0.15f) {
+                    totalActivePixels++
+                    if (y >= bottomThreshold) {
+                        bottomActivePixels++
+                    }
+                }
+            }
+        }
+
+        if (totalActivePixels == 0) return false
+
+        val segWidth = endColumn - startColumn
+        val isNarrow = segWidth < height * 0.35
+        val isAtBottom = (bottomActivePixels.toDouble() / totalActivePixels) > 0.75
+
+        return isNarrow && isAtBottom
     }
 
     private fun getRedness(pixel: Int, isBinaryMask: Boolean): Float {

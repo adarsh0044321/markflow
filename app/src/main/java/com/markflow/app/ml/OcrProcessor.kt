@@ -89,24 +89,32 @@ class OcrProcessor @Inject constructor() {
                 "Z", "z" -> return "2"
                 "B" -> return "8"
                 "g", "q" -> return "9"
+                "e", "E" -> return "3"
+                "a", "A", "H", "h" -> return "4"
+                "F", "f" -> return "7"
             }
         }
 
         // For multi-character strings, check if all characters are valid digits, slashes, dots,
-        // or common confusion characters. If so, map all of them.
-        val isAllConfusionChars = mapped.all { it.isDigit() || it == '/' || it == '.' || it in "oOiIl|iszZBgqbT" }
+        // whitespace, or common confusion characters. If so, map all of them.
+        val isAllConfusionChars = mapped.all { 
+            it.isDigit() || it == '/' || it == '.' || it.isWhitespace() || it in "oOiIl|iszZBgqbTeEaAHhfF" 
+        }
         if (isAllConfusionChars) {
             val sb = StringBuilder()
             for (char in mapped) {
                 when (char) {
                     'o', 'O' -> sb.append('0')
                     'i', 'I', 'l', '|', 't', 'T' -> sb.append('1')
-                    's', 'S' -> sb.append('5')
                     'z', 'Z' -> sb.append('2')
+                    'e', 'E' -> sb.append('3')
+                    'a', 'A', 'H', 'h' -> sb.append('4')
+                    's', 'S' -> sb.append('5')
+                    'b' -> sb.append('6')
+                    'f', 'F' -> sb.append('7')
                     'B' -> sb.append('8')
                     'g', 'q' -> sb.append('9')
-                    'b' -> sb.append('6')
-                    else -> sb.append(char)
+                    else -> sb.append(char) // keeps whitespace, slashes, dots
                 }
             }
             mapped = sb.toString()
