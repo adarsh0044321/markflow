@@ -58,6 +58,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Undo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -661,7 +662,7 @@ fun PageViewScreen(
                                     TextButton(onClick = {
                                         if (annotations.isNotEmpty()) annotations.removeLast()
                                     }) {
-                                        Icon(Icons.Filled.Undo, null, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.AutoMirrored.Filled.Undo, null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("Undo", fontSize = 12.sp)
                                     }
