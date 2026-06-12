@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -1021,7 +1022,7 @@ fun PageReviewDialog(
                             onClick = onRotate,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Filled.RotateRight, null)
+                            Icon(Icons.AutoMirrored.Filled.RotateRight, null)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Rotate")
                         }
