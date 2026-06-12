@@ -136,8 +136,26 @@ class RedInkFilter @Inject constructor(
             }
         }
 
+        // Erosion (3x3 kernel) — shrink back white regions to remove isolated noise points
+        val eroded = IntArray(width * height)
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                var allWhite = true
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        if (dilated[(y + dy) * width + (x + dx)] == Color.BLACK) {
+                            allWhite = false
+                            break
+                        }
+                    }
+                    if (!allWhite) break
+                }
+                eroded[y * width + x] = if (allWhite) Color.WHITE else Color.BLACK
+            }
+        }
+
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        result.setPixels(dilated, 0, width, 0, 0, width, height)
+        result.setPixels(eroded, 0, width, 0, 0, width, height)
         return result
     }
 
