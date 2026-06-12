@@ -87,10 +87,13 @@ class StatisticsViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
 
-    val cohortGrades: StateFlow<CohortGradeDistribution> = cohortCopies.map { copies ->
+    val cohortGrades: StateFlow<CohortGradeDistribution> = combine(cohortCopies, sessions, selectedSessionId) { copies, sessionList, sessionId ->
         var a = 0; var b = 0; var c = 0; var d = 0; var f = 0
+        val selectedSession = if (sessionId != null) sessionList.find { it.id == sessionId } else null
+        val maxMarks = selectedSession?.maxMarks ?: 100.0
+
         copies.forEach { copy ->
-            val pct = copy.calculatedTotal
+            val pct = if (maxMarks > 0) (copy.calculatedTotal / maxMarks) * 100.0 else 0.0
             when {
                 pct >= 85.0 -> a++
                 pct >= 70.0 -> b++
