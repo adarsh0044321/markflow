@@ -296,7 +296,7 @@ class ReportGenerator @Inject constructor(
             addHeaderCell(issueTable, "Status", headerFont)
 
             issues.forEach { issue ->
-                val severityColor = if (issue.severity == "error") BaseColor(255, 204, 204) else BaseColor(255, 255, 204)
+                val severityColor = if (issue.severity.lowercase(Locale.US) == "error") BaseColor(255, 204, 204) else BaseColor(255, 255, 204)
                 issueTable.addCell(PdfPCell(Phrase(issue.severity.uppercase(Locale.US), alertFont)).apply {
                     backgroundColor = severityColor
                     setPadding(5f)
