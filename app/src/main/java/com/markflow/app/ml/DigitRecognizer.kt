@@ -100,13 +100,6 @@ class DigitRecognizer @Inject constructor(
     /**
      * Recognize a multi-digit number from a cropped image.
      * Attempts to segment individual digits and recognize each one.
-     *
-     * @param bitmap The cropped image potentially containing multiple digits
-     * @return The recognized numeric value and confidence, or null
-     */
-    /**
-     * Recognize a multi-digit number from a cropped image.
-     * Attempts to segment individual digits and recognize each one.
      * Supports decimal marks (e.g., "4.5").
      *
      * @param bitmap The cropped image potentially containing multiple digits
