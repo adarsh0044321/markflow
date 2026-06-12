@@ -245,15 +245,15 @@ fun Double.toMarksString(): String {
     return if (this == this.toLong().toDouble()) {
         this.toLong().toString()
     } else {
-        String.format("%.1f", this)
+        String.format(Locale.US, "%.1f", this)
     }
 }
 
 fun Int.toFormattedCount(): String {
     return when {
         this < 1000 -> this.toString()
-        this < 1_000_000 -> String.format("%.1fK", this / 1000.0)
-        else -> String.format("%.1fM", this / 1_000_000.0)
+        this < 1_000_000 -> String.format(Locale.US, "%.1fK", this / 1000.0)
+        else -> String.format(Locale.US, "%.1fM", this / 1_000_000.0)
     }
 }
 
