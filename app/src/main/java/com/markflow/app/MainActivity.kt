@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.markflow.app.data.repository.SettingsRepository
 import javax.inject.Inject
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.markflow.app.ui.navigation.MarkFlowNavGraph
 import com.markflow.app.ui.theme.MarkFlowTheme
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val darkTheme by settingsRepository.darkThemeFlow.collectAsState(initial = false)
+            val darkTheme by settingsRepository.darkThemeFlow.collectAsStateWithLifecycle(initialValue = false)
             MarkFlowTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
