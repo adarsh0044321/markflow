@@ -46,8 +46,8 @@ class StatisticsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val cohortStats: StateFlow<DashboardStats> = cohortCopies.map { copies ->
-        if (copies.isEmpty()) return@map DashboardStats()
+    val cohortStats: StateFlow<DashboardStats> = combine(cohortCopies, sessions, selectedSessionId) { copies, sessionList, sessionId ->
+        if (copies.isEmpty()) return@combine DashboardStats()
 
         val totalCopies = copies.size
         val totalPages = copies.sumOf { it.pageCount }
@@ -57,7 +57,12 @@ class StatisticsViewModel @Inject constructor(
         val highest = marksList.lastOrNull() ?: 0.0
         val lowest = marksList.firstOrNull() ?: 0.0
 
-        val passCount = copies.count { it.calculatedTotal >= 33.0 }
+        val selectedSession = if (sessionId != null) sessionList.find { it.id == sessionId } else null
+        val maxMarks = selectedSession?.maxMarks ?: 100.0
+        val passThreshold = selectedSession?.passThreshold ?: 33.0
+        val passScore = maxMarks * (passThreshold / 100.0)
+
+        val passCount = copies.count { it.calculatedTotal >= passScore }
         val passPercentage = if (totalCopies > 0) (passCount.toDouble() / totalCopies) * 100.0 else 0.0
 
         val median = if (totalCopies == 0) 0.0 else if (totalCopies % 2 == 0) {
