@@ -612,7 +612,7 @@ fun PageViewScreen(
                         IconButton(
                             onClick = { viewModel.navigateToNextPage() }
                         ) {
-                            Icon(Icons.Filled.ArrowForward, "Next Page")
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, "Next Page")
                         }
                     } else {
                         Button(
