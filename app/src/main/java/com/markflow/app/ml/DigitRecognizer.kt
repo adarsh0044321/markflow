@@ -386,12 +386,14 @@ class DigitRecognizer @Inject constructor(
      * Load the TF Lite model file from assets.
      */
     private fun loadModelFile(): MappedByteBuffer {
-        val assetFileDescriptor = context.assets.openFd("ml/${Constants.DIGIT_MODEL_FILENAME}")
-        val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = assetFileDescriptor.startOffset
-        val declaredLength = assetFileDescriptor.declaredLength
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+        return context.assets.openFd("ml/${Constants.DIGIT_MODEL_FILENAME}").use { assetFileDescriptor ->
+            FileInputStream(assetFileDescriptor.fileDescriptor).use { inputStream ->
+                val fileChannel = inputStream.channel
+                val startOffset = assetFileDescriptor.startOffset
+                val declaredLength = assetFileDescriptor.declaredLength
+                fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+            }
+        }
     }
 
     /**
