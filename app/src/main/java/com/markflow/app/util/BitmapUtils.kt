@@ -22,7 +22,7 @@ object BitmapUtils {
         val width = bitmap.width
         val height = bitmap.height
         val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
-        if (ratio >= 1f) return bitmap
+        if (ratio >= 1f) return bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, true)
         val newWidth = (width * ratio).toInt()
         val newHeight = (height * ratio).toInt()
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
