@@ -53,8 +53,10 @@ fun SettingsScreen(
     val hasUnsavedChanges by viewModel.hasUnsavedChanges.collectAsStateWithLifecycle()
 
     // Validation
-    val maxMarksError = maxMarks.toDoubleOrNull() == null || maxMarks.toDouble() <= 0 || maxMarks.toDouble() > 1000
-    val defaultQuestionMarksError = defaultQuestionMarks.toDoubleOrNull() == null || defaultQuestionMarks.toDouble() <= 0 || defaultQuestionMarks.toDouble() > 100
+    val maxMarksVal = maxMarks.toDoubleOrNull()
+    val defaultQuestionMarksVal = defaultQuestionMarks.toDoubleOrNull()
+    val maxMarksError = maxMarksVal == null || maxMarksVal <= 0 || maxMarksVal > 1000
+    val defaultQuestionMarksError = defaultQuestionMarksVal == null || defaultQuestionMarksVal <= 0 || defaultQuestionMarksVal > 100 || (maxMarksVal != null && defaultQuestionMarksVal > maxMarksVal)
     val passThresholdError = passThreshold.toDoubleOrNull() == null || passThreshold.toDouble() < 0 || passThreshold.toDouble() > 100
     val markSensitivityError = markSensitivity.toDoubleOrNull() == null || markSensitivity.toDouble() < 0 || markSensitivity.toDouble() > 100
     
@@ -367,7 +369,7 @@ fun SettingsScreen(
                     value = defaultQuestionMarks,
                     onValueChange = { viewModel.updateDefaultQuestionMarks(it) },
                     isError = defaultQuestionMarksError,
-                    errorMessage = "Must be positive (max 100)"
+                    errorMessage = "Must be positive, max 100, and cannot exceed Maximum Marks"
                 )
             }
 
