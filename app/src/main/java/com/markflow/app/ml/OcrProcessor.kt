@@ -243,7 +243,7 @@ class OcrProcessor @Inject constructor() {
         return if (this == this.toLong().toDouble()) {
             this.toLong().toString()
         } else {
-            this.toString()
+            String.format(java.util.Locale.US, "%.1f", this)
         }
     }
 
