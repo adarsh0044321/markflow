@@ -49,8 +49,8 @@ interface PageDao {
 
     @Query("""
         UPDATE pages SET 
-            pageTotal = COALESCE((SELECT SUM(value) FROM marks WHERE pageId = :pageId AND status IN ('confirmed', 'edited')), 0),
-            markCount = (SELECT COUNT(*) FROM marks WHERE pageId = :pageId AND status IN ('confirmed', 'edited', 'needs_review'))
+            pageTotal = COALESCE((SELECT SUM(value) FROM marks WHERE pageId = :pageId AND status IN ('confirmed', 'edited') AND regionType = 'awarded_mark'), 0),
+            markCount = (SELECT COUNT(*) FROM marks WHERE pageId = :pageId AND status IN ('confirmed', 'edited', 'needs_review') AND regionType = 'awarded_mark')
         WHERE id = :pageId
     """)
     suspend fun recalculatePageStats(pageId: Long)
