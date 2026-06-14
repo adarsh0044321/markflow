@@ -138,7 +138,7 @@ class ReportGenerator @Inject constructor(
                         val completed = completedCount.incrementAndGet()
                         val pct = completed.toFloat() / totalPages
                         val elapsed = System.currentTimeMillis() - startTime
-                        val avgTimePerPage = elapsed / completed.toDouble()
+                        val avgTimePerPage = if (completed > 0) elapsed / completed.toDouble() else 0.0
                         val estRemainingSeconds = ((totalPages - completed) * avgTimePerPage / 1000.0).toInt()
 
                         val shouldContinue = progressListener?.onProgress(
