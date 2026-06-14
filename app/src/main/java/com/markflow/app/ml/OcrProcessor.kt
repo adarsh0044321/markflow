@@ -98,7 +98,7 @@ class OcrProcessor @Inject constructor() {
         // For multi-character strings, check if all characters are valid digits, slashes, dots,
         // whitespace, or common confusion characters. If so, map all of them.
         val isAllConfusionChars = mapped.all { 
-            it.isDigit() || it == '/' || it == '.' || it.isWhitespace() || it in "oOiIl|iszZBgqbTeEaAHhfF" 
+            it.isDigit() || it == '/' || it == '.' || it.isWhitespace() || it in "oOiIl|iszZBgqbTteEaAHhfF" 
         }
         if (isAllConfusionChars) {
             val sb = StringBuilder()
