@@ -102,6 +102,7 @@ class RedInkFilter @Inject constructor(
 
         // Apply simple morphological cleanup (dilate then erode to fill gaps)
         val cleanedMask = morphologicalClean(mask, width, height)
+        mask.recycle()
 
         return RedInkResult(
             mask = cleanedMask,
@@ -237,6 +238,7 @@ class RedInkFilter @Inject constructor(
 
         mask.setPixels(maskPixels, 0, width, 0, 0, width, height)
         val cleanedMask = morphologicalClean(mask, width, height)
+        mask.recycle()
 
         return RedInkResult(
             mask = cleanedMask,
