@@ -85,7 +85,7 @@ class OcrProcessor @Inject constructor() {
             when (mapped) {
                 "S", "s" -> return "5"
                 "O", "o" -> return "0"
-                "I", "l", "|", "i" -> return "1"
+                "I", "l", "|", "i", "T", "t" -> return "1"
                 "Z", "z" -> return "2"
                 "B" -> return "8"
                 "g", "q" -> return "9"
