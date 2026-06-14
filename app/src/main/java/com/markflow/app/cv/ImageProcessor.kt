@@ -707,7 +707,9 @@ class ImageProcessor @Inject constructor() {
 
     fun enhanceEdges(bitmap: Bitmap): Bitmap {
         val sharpened = sharpen(bitmap)
-        return enhanceContrast(sharpened)
+        val enhanced = enhanceContrast(sharpened)
+        sharpened.recycle()
+        return enhanced
     }
 
     fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
