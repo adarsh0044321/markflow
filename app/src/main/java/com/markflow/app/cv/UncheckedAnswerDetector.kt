@@ -39,12 +39,16 @@ class UncheckedAnswerDetector @Inject constructor() {
         val width = originalBitmap.width
         val height = originalBitmap.height
 
-        // Step 1: Detect dark ink (student handwriting) regions
-        val darkMask = detectDarkInk(originalBitmap, width, height)
+        // Read original pixels and red mask pixels into arrays
+        val origPixels = IntArray(width * height)
+        originalBitmap.getPixels(origPixels, 0, width, 0, 0, width, height)
 
-        // Step 2: Divide page into horizontal strips (answer regions)
+        val redPixels = IntArray(width * height)
+        redMask.getPixels(redPixels, 0, width, 0, 0, width, height)
+
         val stripHeight = height / 10  // Divide page into ~10 answer regions
         val uncheckedRegions = mutableListOf<UncheckedRegion>()
+        val hsv = FloatArray(3)
 
         for (stripIdx in 0 until 10) {
             val yStart = stripIdx * stripHeight
@@ -56,12 +60,32 @@ class UncheckedAnswerDetector @Inject constructor() {
             val stripPixelCount = (yEnd - yStart) * width
 
             for (y in yStart until yEnd) {
+                val rowOffset = y * width
                 for (x in 0 until width) {
-                    val darkPixel = darkMask.getPixel(x, y)
-                    if (darkPixel == Color.WHITE) darkPixelCount++
+                    val idx = rowOffset + x
 
-                    val redPixel = redMask.getPixel(x, y)
-                    if (redPixel == Color.WHITE) redPixelCount++
+                    // Check red ink from the red mask array
+                    if (redPixels[idx] == Color.WHITE) {
+                        redPixelCount++
+                    }
+
+                    // Check dark ink directly from original pixels
+                    val pixel = origPixels[idx]
+                    val r = (pixel shr 16) and 0xFF
+                    val g = (pixel shr 8) and 0xFF
+                    val b = pixel and 0xFF
+
+                    Color.RGBToHSV(r, g, b, hsv)
+                    val brightness = hsv[2]
+                    val saturation = hsv[1]
+
+                    // Dark ink: low brightness OR blue-ish ink (high saturation in blue range)
+                    val isDark = brightness < 0.35
+                    val isBlueInk = hsv[0] in 180f..260f && saturation > 0.3f && brightness < 0.6f
+
+                    if (isDark || isBlueInk) {
+                        darkPixelCount++
+                    }
                 }
             }
 
@@ -80,41 +104,7 @@ class UncheckedAnswerDetector @Inject constructor() {
             }
         }
 
-        darkMask.recycle()
         return uncheckedRegions
-    }
-
-    /**
-     * Detect dark ink (black/blue) regions — student handwriting.
-     * Uses a simple brightness threshold.
-     */
-    private fun detectDarkInk(bitmap: Bitmap, width: Int, height: Int): Bitmap {
-        val mask = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-
-        val maskPixels = IntArray(width * height)
-        val hsv = FloatArray(3)
-
-        for (i in pixels.indices) {
-            val pixel = pixels[i]
-            val r = (pixel shr 16) and 0xFF
-            val g = (pixel shr 8) and 0xFF
-            val b = pixel and 0xFF
-
-            Color.RGBToHSV(r, g, b, hsv)
-            val brightness = hsv[2]
-            val saturation = hsv[1]
-
-            // Dark ink: low brightness OR blue-ish ink (high saturation in blue range)
-            val isDark = brightness < 0.35
-            val isBlueInk = hsv[0] in 180f..260f && saturation > 0.3f && brightness < 0.6f
-
-            maskPixels[i] = if (isDark || isBlueInk) Color.WHITE else Color.BLACK
-        }
-
-        mask.setPixels(maskPixels, 0, width, 0, 0, width, height)
-        return mask
     }
 
     /**
