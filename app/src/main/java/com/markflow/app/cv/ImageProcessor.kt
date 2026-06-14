@@ -639,10 +639,12 @@ class ImageProcessor @Inject constructor() {
     }
 
     fun enhanceDocumentReadability(bitmap: Bitmap): Bitmap {
-        var enhanced = normalizeIllumination(bitmap)
-        enhanced = enhanceContrast(enhanced)
-        enhanced = sharpen(enhanced)
-        return enhanced
+        val normalized = normalizeIllumination(bitmap)
+        val contrastEnhanced = enhanceContrast(normalized)
+        normalized.recycle()
+        val sharpened = sharpen(contrastEnhanced)
+        contrastEnhanced.recycle()
+        return sharpened
     }
 
     fun extractRedRegion(bitmap: Bitmap): Bitmap {
