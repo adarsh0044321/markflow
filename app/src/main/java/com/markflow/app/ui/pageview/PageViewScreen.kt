@@ -48,6 +48,8 @@ import com.markflow.app.ui.components.MarkChip
 import com.markflow.app.ui.components.MarkChipSize
 import com.markflow.app.util.toMarksString
 import com.markflow.app.ui.theme.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
@@ -253,12 +255,19 @@ fun PageViewScreen(
 
             AlertDialog(
                 onDismissRequest = { showEvaluationDialog = false },
-                title = { Text("Step Marks - Question $questionNumText") },
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text(
+                        text = "Step Marks - Question $questionNumText",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 350.dp)
+                            .heightIn(max = 380.dp)
                             .pointerInput(Unit) {
                                 var totalDrag = 0f
                                 detectDragGestures(
@@ -278,22 +287,40 @@ fun PageViewScreen(
                                 )
                             }
                     ) {
-                        OutlinedTextField(
-                            value = questionNumText,
-                            onValueChange = { questionNumText = it.filter { c -> c.isDigit() } },
-                            label = { Text("Question Number") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(
-                                onNext = {
-                                    focusManager.moveFocus(FocusDirection.Down)
-                                }
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        )
+                        // Input: Question Number
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Question Number",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = questionNumText,
+                                onValueChange = { questionNumText = it.filter { c -> c.isDigit() } },
+                                placeholder = { Text("e.g. 1") },
+                                textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(
+                                    onNext = {
+                                        focusManager.moveFocus(FocusDirection.Down)
+                                    }
+                                ),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
 
-                        Text("Steps Breakdown:", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Steps Breakdown",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         LazyColumn(
                             modifier = Modifier.weight(1f),
@@ -301,60 +328,113 @@ fun PageViewScreen(
                         ) {
                             items(stepsList.size) { index ->
                                 val step = stepsList[index]
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    OutlinedTextField(
-                                        value = step.first,
-                                        onValueChange = { newVal ->
-                                            stepsList[index] = filterMarkInput(newVal, maxQuestionMarks) to step.second
-                                        },
-                                        label = { Text("Step ${index + 1} Mark") },
-                                        keyboardOptions = KeyboardOptions(
-                                            keyboardType = KeyboardType.Decimal,
-                                            imeAction = ImeAction.Next
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onNext = {
-                                                focusManager.moveFocus(FocusDirection.Right)
-                                            }
-                                        ),
-                                        singleLine = true,
-                                        modifier = if (index == 0) {
-                                            Modifier.width(110.dp).focusRequester(focusRequester)
-                                        } else {
-                                            Modifier.width(110.dp)
-                                        }
-                                    )
-
-                                    OutlinedTextField(
-                                        value = step.second,
-                                        onValueChange = { newVal ->
-                                            stepsList[index] = step.first to newVal
-                                        },
-                                        label = { Text("Comment") },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(
-                                            imeAction = if (index == stepsList.size - 1) ImeAction.Done else ImeAction.Next
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onNext = {
-                                                focusManager.moveFocus(FocusDirection.Down)
-                                            },
-                                            onDone = {
-                                                focusManager.clearFocus()
-                                            }
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    )
-
-                                    IconButton(
-                                        onClick = { stepsList.removeAt(index) },
-                                        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                    Column(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(Icons.Filled.Delete, "Delete Step")
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Step ${index + 1}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            IconButton(
+                                                onClick = { stepsList.removeAt(index) },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Delete,
+                                                    contentDescription = "Delete Step",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.weight(0.35f),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Mark",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                OutlinedTextField(
+                                                    value = step.first,
+                                                    onValueChange = { newVal ->
+                                                        stepsList[index] = filterMarkInput(newVal, maxQuestionMarks) to step.second
+                                                    },
+                                                    placeholder = { Text("0.0") },
+                                                    textStyle = TabularNumbers.copy(fontSize = 15.sp),
+                                                    keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Decimal,
+                                                        imeAction = ImeAction.Next
+                                                    ),
+                                                    keyboardActions = KeyboardActions(
+                                                        onNext = {
+                                                            focusManager.moveFocus(FocusDirection.Right)
+                                                        }
+                                                    ),
+                                                    singleLine = true,
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = if (index == 0) {
+                                                        Modifier.fillMaxWidth().focusRequester(focusRequester)
+                                                    } else {
+                                                        Modifier.fillMaxWidth()
+                                                    }
+                                                )
+                                            }
+
+                                            Column(
+                                                modifier = Modifier.weight(0.65f),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Comment",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                OutlinedTextField(
+                                                    value = step.second,
+                                                    onValueChange = { newVal ->
+                                                        stepsList[index] = step.first to newVal
+                                                    },
+                                                    placeholder = { Text("e.g. Correct formula") },
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(
+                                                        imeAction = if (index == stepsList.size - 1) ImeAction.Done else ImeAction.Next
+                                                    ),
+                                                    keyboardActions = KeyboardActions(
+                                                        onNext = {
+                                                            focusManager.moveFocus(FocusDirection.Down)
+                                                        },
+                                                        onDone = {
+                                                            focusManager.clearFocus()
+                                                        }
+                                                    ),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -367,21 +447,30 @@ fun PageViewScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(onClick = {
-                                stepsList.add("" to "")
-                            }) {
-                                Icon(Icons.Filled.Add, null)
+                            Button(
+                                onClick = {
+                                    stepsList.add("" to "")
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Add Step")
                             }
 
                             val stepTotal = stepsList.mapNotNull { it.first.toDoubleOrNull() }.sum()
-                            Text(
-                                text = "Subtotal: ${stepTotal.toMarksString()} M",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Subtotal: ",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${stepTotal.toMarksString()} M",
+                                    style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 },
@@ -394,10 +483,12 @@ fun PageViewScreen(
                             }
                             dialogStepIndex = 1
                         },
-                        enabled = areStepsValid
+                        enabled = areStepsValid,
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Text("Next: Final Marks")
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(16.dp))
                     }
                 },
                 dismissButton = {
@@ -427,7 +518,14 @@ fun PageViewScreen(
 
             AlertDialog(
                 onDismissRequest = { showEvaluationDialog = false },
-                title = { Text("Final Question Marks - Q$questionNumText") },
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text(
+                        text = "Final Question Marks",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
                     Column(
                         modifier = Modifier
@@ -451,15 +549,65 @@ fun PageViewScreen(
                                 )
                             }
                     ) {
-                        Text("Question Number: Q$questionNumText", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                        Text("Question Max Marks: $maxQuestionMarks M", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Step Marks Total: ${stepTotal.toMarksString()} M", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        
+                        // Overview Card of Question Info
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Question Index", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = "Q$questionNumText",
+                                        style = TabularNumbers.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Maximum Marks", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = "$maxQuestionMarks M",
+                                        style = TabularNumbers.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Step Marks Total", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = "${stepTotal.toMarksString()} M",
+                                        style = TabularNumbers.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Override Auto Total", style = MaterialTheme.typography.bodyMedium)
-                            Spacer(modifier = Modifier.width(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Override Auto Total",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
                             Switch(
                                 checked = isOverrideActive,
                                 onCheckedChange = {
@@ -471,28 +619,39 @@ fun PageViewScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
-                            value = finalAwardedText,
-                            onValueChange = { newVal ->
-                                finalAwardedText = filterMarkInput(newVal, maxQuestionMarks)
-                            },
-                            enabled = isOverrideActive,
-                            isError = !isFinalValid && finalAwardedText.isNotEmpty(),
-                            label = { Text("Final Awarded Marks") },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    focusManager.clearFocus()
-                                }
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().focusRequester(finalFocusRequester)
-                        )
+                        // Input field: Final Awarded Marks
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Final Awarded Marks",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = finalAwardedText,
+                                onValueChange = { newVal ->
+                                    finalAwardedText = filterMarkInput(newVal, maxQuestionMarks)
+                                },
+                                enabled = isOverrideActive,
+                                isError = !isFinalValid && finalAwardedText.isNotEmpty(),
+                                placeholder = { Text(stepTotal.toMarksString()) },
+                                textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                    }
+                                ),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().focusRequester(finalFocusRequester),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
 
                         if (!isFinalValid && finalAwardedText.isNotEmpty()) {
                             Text(
@@ -523,16 +682,20 @@ fun PageViewScreen(
                             viewModel.addManualMark(finalScore, displayStr, x, y)
                             showEvaluationDialog = false
                         },
-                        enabled = isFinalValid
+                        enabled = isFinalValid,
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(Icons.Filled.Save, null)
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Filled.Save, null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text("Save & Exit")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { dialogStepIndex = 0 }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
+                    TextButton(
+                        onClick = { dialogStepIndex = 0 },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Back")
                     }
@@ -645,9 +808,10 @@ fun PageViewScreen(
             // ── Floating Evaluation Toolbox UI ──
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -658,9 +822,12 @@ fun PageViewScreen(
                         ) {
                             Text("Evaluation Toolbox", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             if (activeTool != ToolType.NONE) {
+                                val annotationsList = annotations
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     TextButton(onClick = {
-                                        if (annotations.isNotEmpty()) annotations.removeLast()
+                                        if (annotationsList.isNotEmpty()) {
+                                            annotationsList.removeAt(annotationsList.size - 1)
+                                        }
                                     }) {
                                         Icon(Icons.AutoMirrored.Filled.Undo, null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
@@ -682,75 +849,75 @@ fun PageViewScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.NONE,
                                     onClick = { activeTool = ToolType.NONE },
-                                    label = { Text("Select") },
-                                    leadingIcon = { Icon(Icons.Filled.TouchApp, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Select",
+                                    icon = Icons.Filled.TouchApp
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.TICK,
                                     onClick = { activeTool = ToolType.TICK },
-                                    label = { Text("Tick (✓)") },
-                                    leadingIcon = { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Tick (✓)",
+                                    icon = Icons.Filled.Check
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.CROSS,
                                     onClick = { activeTool = ToolType.CROSS },
-                                    label = { Text("Cross (✗)") },
-                                    leadingIcon = { Icon(Icons.Filled.Close, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Cross (✗)",
+                                    icon = Icons.Filled.Close
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.PAGE_SEEN,
                                     onClick = { activeTool = ToolType.PAGE_SEEN },
-                                    label = { Text("Double Tick") },
-                                    leadingIcon = { Icon(Icons.Filled.DoneAll, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Double Tick",
+                                    icon = Icons.Filled.DoneAll
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.BLANK_PAGE,
                                     onClick = { activeTool = ToolType.BLANK_PAGE },
-                                    label = { Text("Blank Stamp") },
-                                    leadingIcon = { Icon(Icons.Filled.LayersClear, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Blank Stamp",
+                                    icon = Icons.Filled.LayersClear
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.UNDERLINE,
                                     onClick = { activeTool = ToolType.UNDERLINE },
-                                    label = { Text("Underline") },
-                                    leadingIcon = { Icon(Icons.Filled.HorizontalRule, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Underline",
+                                    icon = Icons.Filled.HorizontalRule
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.CIRCLE,
                                     onClick = { activeTool = ToolType.CIRCLE },
-                                    label = { Text("Circle") },
-                                    leadingIcon = { Icon(Icons.Filled.RadioButtonUnchecked, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Circle",
+                                    icon = Icons.Filled.RadioButtonUnchecked
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.FREE_PEN,
                                     onClick = { activeTool = ToolType.FREE_PEN },
-                                    label = { Text("Pen") },
-                                    leadingIcon = { Icon(Icons.Filled.Edit, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Pen",
+                                    icon = Icons.Filled.Edit
                                 )
                             }
                             item {
-                                FilterChip(
+                                ToolboxChip(
                                     selected = activeTool == ToolType.QUESTION_NUMBER,
                                     onClick = { activeTool = ToolType.QUESTION_NUMBER },
-                                    label = { Text("Q No (Q$currentQuestionNumber)") },
-                                    leadingIcon = { Icon(Icons.Filled.Tag, null, modifier = Modifier.size(16.dp)) }
+                                    label = "Q No (Q$currentQuestionNumber)",
+                                    icon = Icons.Filled.Tag
                                 )
                             }
                         }
@@ -1269,4 +1436,39 @@ private fun DrawScope.drawAnnotation(action: AnnotationAction, color: Color, str
         }
         else -> {}
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ToolboxChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.primary,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+            containerColor = Color.Transparent,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            iconColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            selectedBorderColor = MaterialTheme.colorScheme.primary,
+            borderColor = MaterialTheme.colorScheme.outlineVariant,
+            selectedBorderWidth = 1.dp,
+            borderWidth = 1.dp
+        ),
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier
+    )
 }

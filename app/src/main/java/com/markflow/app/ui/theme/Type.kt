@@ -15,6 +15,14 @@ import androidx.compose.ui.unit.sp
 // Use the default Material font family for broad device compatibility
 // Can be replaced with Google Fonts (Outfit, Roboto) by adding font resources
 val MarkFlowFontFamily = FontFamily.Default
+val MarkFlowMonospace = FontFamily.Monospace
+
+// Custom text style for technical and tabular figures (marks, scores, roll numbers)
+val TabularNumbers = TextStyle(
+    fontFamily = MarkFlowMonospace,
+    fontWeight = FontWeight.Bold,
+    letterSpacing = 0.5.sp
+)
 
 val MarkFlowTypography = Typography(
     // Large display — used for running total

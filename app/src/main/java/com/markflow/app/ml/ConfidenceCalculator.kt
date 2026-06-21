@@ -49,8 +49,39 @@ class ConfidenceCalculator @Inject constructor() {
         ocrConfidence: Double?,
         aiValue: Double?,
         aiConfidence: Double?,
-        displayValue: String
+        displayValue: String,
+        isFraction: Boolean = false
     ): ConfidenceResult {
+        // If it's a fraction and OCR successfully parsed a value, it is highly reliable.
+        if (isFraction && ocrValue != null && ocrConfidence != null) {
+            // Check if TFLite (AI) agrees with the numerator of the fraction.
+            // (e.g. OCR value is 7.0 for "7/10", and AI value is also 7.0)
+            val aiMatchesNumerator = aiValue != null && Math.abs(aiValue - ocrValue) < 1e-9
+            
+            if (aiMatchesNumerator) {
+                // Strong consensus: AI verified the numerator, OCR verified the format
+                val finalConf = (ocrConfidence + 0.15).coerceIn(0.0, 1.0)
+                return ConfidenceResult(
+                    finalConfidence = finalConf,
+                    finalValue = ocrValue,
+                    finalDisplayValue = displayValue,
+                    isAutoConfirmed = finalConf >= Constants.CONFIDENCE_AUTO_CONFIRM,
+                    needsReview = finalConf < Constants.CONFIDENCE_REVIEW_THRESHOLD,
+                    agreementLevel = AgreementLevel.FULL_AGREEMENT
+                )
+            } else {
+                // If they disagree but OCR has high confidence in the fraction, trust OCR without penalty
+                return ConfidenceResult(
+                    finalConfidence = ocrConfidence,
+                    finalValue = ocrValue,
+                    finalDisplayValue = displayValue,
+                    isAutoConfirmed = ocrConfidence >= Constants.CONFIDENCE_AUTO_CONFIRM,
+                    needsReview = ocrConfidence < Constants.CONFIDENCE_REVIEW_THRESHOLD,
+                    agreementLevel = AgreementLevel.SINGLE_SOURCE
+                )
+            }
+        }
+
         val sources = mutableListOf<Pair<Double, Double>>() // value, confidence pairs
 
         if (cvValue != null && cvConfidence != null) sources.add(cvValue to cvConfidence)

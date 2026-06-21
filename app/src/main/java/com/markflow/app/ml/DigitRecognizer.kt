@@ -120,8 +120,29 @@ class DigitRecognizer @Inject constructor(
         val columns = segmentDigitsColumns(bitmap)
         if (columns.isEmpty()) return null
 
-        if (columns.size == 1) {
-            val seg = columns[0]
+        // Refine columns: split segments that are abnormally wide (indicates touching/overlapping digits)
+        val refinedColumns = mutableListOf<Pair<Int, Int>>()
+        for (col in columns) {
+            val segWidth = col.second - col.first
+            val aspect = segWidth.toDouble() / bitmap.height
+            if (aspect > 0.85) {
+                // Approximate number of digits based on aspect ratio (average digit aspect is ~0.55)
+                val numDigits = Math.round(aspect / 0.55).toInt().coerceIn(2, 4)
+                val subWidth = segWidth / numDigits
+                for (d in 0 until numDigits) {
+                    val subStart = col.first + d * subWidth
+                    val subEnd = if (d == numDigits - 1) col.second else subStart + subWidth
+                    refinedColumns.add(subStart to subEnd)
+                }
+            } else {
+                refinedColumns.add(col)
+            }
+        }
+
+        if (refinedColumns.isEmpty()) return null
+
+        if (refinedColumns.size == 1) {
+            val seg = refinedColumns[0]
             val segBitmap = Bitmap.createBitmap(bitmap, seg.first, 0, seg.second - seg.first, bitmap.height)
             val result = recognizeDigit(segBitmap)
             segBitmap.recycle()
@@ -134,8 +155,8 @@ class DigitRecognizer @Inject constructor(
         val segmentValues = mutableListOf<String>()
         val confidences = mutableListOf<Double>()
 
-        for (i in columns.indices) {
-            val col = columns[i]
+        for (i in refinedColumns.indices) {
+            val col = refinedColumns[i]
             val segWidth = col.second - col.first
 
             // Check if this segment represents a decimal dot

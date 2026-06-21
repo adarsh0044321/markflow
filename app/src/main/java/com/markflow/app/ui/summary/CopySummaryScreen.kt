@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
@@ -109,7 +110,14 @@ fun CopySummaryScreen(
 
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Generating Report") },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Generating Report",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -135,15 +143,14 @@ fun CopySummaryScreen(
                     ) {
                         Text(
                             text = "${(currentProgress * 100).toInt()}% complete",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = TabularNumbers.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary
                         )
                         
                         if (estimatedTime >= 0) {
                             Text(
                                 text = if (estimatedTime == 0) "Almost done..." else "Est: ${estimatedTime}s remaining",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = TabularNumbers.copy(fontSize = 12.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -164,62 +171,130 @@ fun CopySummaryScreen(
     if (showStudentDetailsDialog) {
         AlertDialog(
             onDismissRequest = { showStudentDetailsDialog = false },
-            title = { Text("Confirm Student Details") },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Confirm Student Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "Verify or enter student details before generating the PDF report:",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = studentNameInput,
-                        onValueChange = { studentNameInput = it },
-                        label = { Text("Student Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = rollNumberInput,
-                        onValueChange = { rollNumberInput = it },
-                        label = { Text("Roll Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = regNumberInput,
-                        onValueChange = { regNumberInput = it },
-                        label = { Text("Registration Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    
+                    // Input 1: Student Name
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Student Name",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = studentNameInput,
+                            onValueChange = { studentNameInput = it },
+                            placeholder = { Text("e.g. Eleanor Vance") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+
+                    // Input 2: Roll Number
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Roll Number",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = rollNumberInput,
+                            onValueChange = { rollNumberInput = it },
+                            placeholder = { Text("e.g. 2026-4402") },
+                            textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+
+                    // Input 3: Registration Number
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Registration Number",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = regNumberInput,
+                            onValueChange = { regNumberInput = it },
+                            placeholder = { Text("e.g. REG-889312") },
+                            textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+
+                    // Row for Class and Section
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = classNameInput,
-                            onValueChange = { classNameInput = it },
-                            label = { Text("Class") },
+                        Column(
                             modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = sectionInput,
-                            onValueChange = { sectionInput = it },
-                            label = { Text("Section") },
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Class",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = classNameInput,
+                                onValueChange = { classNameInput = it },
+                                placeholder = { Text("e.g. 10-A") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        Column(
                             modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Section",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = sectionInput,
+                                onValueChange = { sectionInput = it },
+                                placeholder = { Text("e.g. A") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         viewModel.generateReport(
                             studentName = studentNameInput,
@@ -229,7 +304,8 @@ fun CopySummaryScreen(
                             section = sectionInput
                         )
                         showStudentDetailsDialog = false
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Generate PDF")
                 }
@@ -281,40 +357,107 @@ fun CopySummaryScreen(
                 if (showAdjustDialog) {
                     AlertDialog(
                         onDismissRequest = { showAdjustDialog = false },
-                        title = { Text("Adjust Total Marks") },
+                        shape = RoundedCornerShape(16.dp),
+                        title = {
+                            Text(
+                                text = "Adjust Total Marks",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
                         text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
-                                    value = adjustTotalText,
-                                    onValueChange = { adjustTotalText = it },
-                                    label = { Text("Override Total Marks") }
-                                )
-                                OutlinedTextField(
-                                    value = bonusText,
-                                    onValueChange = { bonusText = it },
-                                    label = { Text("Bonus Marks") }
-                                )
-                                OutlinedTextField(
-                                    value = penaltyText,
-                                    onValueChange = { penaltyText = it },
-                                    label = { Text("Penalty Marks") }
-                                )
-                                OutlinedTextField(
-                                    value = reasonText,
-                                    onValueChange = { reasonText = it },
-                                    label = { Text("Reason / Notes") }
-                                )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                // Override Total
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Override Total Marks",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = adjustTotalText,
+                                        onValueChange = { adjustTotalText = it },
+                                        placeholder = { Text("e.g. 75.0") },
+                                        textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+
+                                // Bonus Marks
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Bonus Marks",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = bonusText,
+                                        onValueChange = { bonusText = it },
+                                        placeholder = { Text("0") },
+                                        textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+
+                                // Penalty Marks
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Penalty Marks",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = penaltyText,
+                                        onValueChange = { penaltyText = it },
+                                        placeholder = { Text("0") },
+                                        textStyle = TabularNumbers.copy(fontSize = 16.sp),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+
+                                // Reason / Notes
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Reason / Notes",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = reasonText,
+                                        onValueChange = { reasonText = it },
+                                        placeholder = { Text("e.g. Attendance bonus or Grace marks") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
                             }
                         },
                         confirmButton = {
-                            TextButton(onClick = {
-                                val overrideTotal = adjustTotalText.toDoubleOrNull() ?: runningTotal
-                                val bonus = bonusText.toDoubleOrNull() ?: 0.0
-                                val penalty = penaltyText.toDoubleOrNull() ?: 0.0
-                                val finalAdjustedTotal = overrideTotal + bonus - penalty
-                                viewModel.adjustTotal(finalAdjustedTotal, bonus, penalty, reasonText)
-                                showAdjustDialog = false
-                            }) {
+                            Button(
+                                onClick = {
+                                    val overrideTotal = adjustTotalText.toDoubleOrNull() ?: runningTotal
+                                    val bonus = bonusText.toDoubleOrNull() ?: 0.0
+                                    val penalty = penaltyText.toDoubleOrNull() ?: 0.0
+                                    val finalAdjustedTotal = overrideTotal + bonus - penalty
+                                    viewModel.adjustTotal(finalAdjustedTotal, bonus, penalty, reasonText)
+                                    showAdjustDialog = false
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
                                 Text("Save")
                             }
                         },
@@ -338,7 +481,7 @@ fun CopySummaryScreen(
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -356,19 +499,18 @@ fun CopySummaryScreen(
                         ) {
                             Text(
                                 text = displayedTotal.toMarksString(),
-                                style = MaterialTheme.typography.displayLarge,
-                                fontWeight = FontWeight.Bold,
+                                style = TabularNumbers.copy(fontSize = 48.sp, fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
                                 text = " /100",
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = TabularNumbers.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -376,20 +518,31 @@ fun CopySummaryScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text("Pages Scanned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${pages.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "${pages.size}",
+                                    style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.Tag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text("Marks Detected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${marks.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "${marks.size}",
+                                    style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.CalendarToday, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text("Scan Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
                                     text = copy?.createdAt?.toFormattedDateTime() ?: "",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = TabularNumbers.copy(fontSize = 12.sp, fontWeight = FontWeight.Normal),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -404,16 +557,37 @@ fun CopySummaryScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Student Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                c.studentName?.let { Text("Name: $it", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium) }
-                                c.rollNumber?.let { Text("Roll No: $it", style = MaterialTheme.typography.bodyMedium) }
-                                c.registrationNumber?.let { Text("Registration No: $it", style = MaterialTheme.typography.bodyMedium) }
+                                Text("Student Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                c.studentName?.let {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Name", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
+                                c.rollNumber?.let {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Roll No", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(it, style = TabularNumbers.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
+                                c.registrationNumber?.let {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Registration No", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(it, style = TabularNumbers.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
                                 if (c.className != null || c.section != null) {
-                                    Text("Class: ${c.className ?: ""} - ${c.section ?: ""}", style = MaterialTheme.typography.bodyMedium)
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Class / Section", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${c.className ?: ""} - ${c.section ?: ""}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
                                 }
                             }
                         }
@@ -433,7 +607,9 @@ fun CopySummaryScreen(
                     }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -442,18 +618,31 @@ fun CopySummaryScreen(
                         ) {
                             Column {
                                 Text("Average Scan Quality", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(rating, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = when(rating) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val ratingColor = when(rating) {
                                     "Excellent" -> MaterialTheme.colorScheme.primary
-                                    "Good" -> MaterialTheme.colorScheme.secondary
-                                    "Fair" -> MaterialTheme.colorScheme.tertiary
+                                    "Good" -> ConfidenceHigh
+                                    "Fair" -> ConfidenceMedium
                                     else -> MaterialTheme.colorScheme.error
-                                })
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = ratingColor.copy(alpha = 0.08f),
+                                    border = BorderStroke(1.dp, ratingColor.copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        text = rating,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ratingColor,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                             Text(
                                 text = "$avgScore%",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = TabularNumbers.copy(fontSize = 32.sp, fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -512,25 +701,44 @@ fun CopySummaryScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Question-wise Marks Mapping", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Question-wise Marks Mapping",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.height(12.dp))
                             androidx.compose.foundation.lazy.LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 items(questionMarks) { qm ->
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primaryContainer),
+                                        modifier = Modifier.widthIn(min = 60.dp)
                                     ) {
                                         Column(
-                                            modifier = Modifier.padding(8.dp),
+                                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            Text("Q${qm.questionNumber}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            Text(qm.marksAwarded.toMarksString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text(
+                                                text = "Q${qm.questionNumber}",
+                                                style = TabularNumbers.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = qm.marksAwarded.toMarksString(),
+                                                style = TabularNumbers.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
                                         }
                                     }
                                 }
@@ -544,16 +752,18 @@ fun CopySummaryScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "Verification Summary",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         val aiDetected = marks.count { !it.isManual && it.regionType == "awarded_mark" }
                         val manualAdded = marks.count { it.isManual && it.regionType == "awarded_mark" }
@@ -563,11 +773,17 @@ fun CopySummaryScreen(
                         val missingPages = issues.count { it.type == IssueType.MISSING_SCORE }
 
                         VerificationSummaryRow("AI Detected Marks", "$aiDetected")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Manual Marks Added", "$manualAdded")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Marks Corrected", "$corrected")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Rejected Detections", "$rejected")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Pages Scanned", "${pages.size}")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Duplicate Pages Found", "$duplicatePages")
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         VerificationSummaryRow("Potential Missing Pages", "$missingPages")
                     }
                 }
@@ -687,10 +903,19 @@ fun VerificationSummaryRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = TabularNumbers.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }

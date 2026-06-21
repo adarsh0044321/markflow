@@ -120,11 +120,9 @@ Unlike generic scanner apps, MarkFlow is an **end-to-end evaluation assistant**.
 
 ## 📸 Screenshots
 
-| Dashboard | Real-Time Camera Scan |
-|:---:|:---:|
-| ![Dashboard](assets/screenshots/dashboard.png) | ![Scanning Screen](assets/screenshots/scanning.png) |
-| **Evaluation Session Analytics** | **OCR Results & Marks Breakdown** |
-| ![Analytics Screen](assets/screenshots/analytics.png) | ![Results Screen](assets/screenshots/results.png) |
+| Dashboard | Real-Time Camera Scan | Evaluation Workspace |
+|:---:|:---:|:---:|
+| ![Dashboard](assets/screenshots/home.jpeg) | ![Scanning Screen](assets/screenshots/camera.jpeg) | ![Evaluation Workspace](assets/screenshots/toolbox.jpeg) |
 
 ---
 

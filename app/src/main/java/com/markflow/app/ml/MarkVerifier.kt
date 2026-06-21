@@ -216,7 +216,8 @@ class MarkVerifier @Inject constructor(
                 ocrConfidence = if (ocrResult.numericValue != null) ocrResult.confidence else null,
                 aiValue = aiVal,
                 aiConfidence = if (aiVal != null) aiResult.second else null,
-                displayValue = initialDisplayVal
+                displayValue = initialDisplayVal,
+                isFraction = ocrResult.isFraction
             )
 
             var finalVal = combinedResult.finalValue
