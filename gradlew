@@ -119,6 +119,9 @@ CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
 # Determine the Java command to use to start the JVM.
+if [ -d "$APP_HOME/jdk-dist/jdk-17.0.2" ] ; then
+    JAVA_HOME="$APP_HOME/jdk-dist/jdk-17.0.2"
+fi
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
         # IBM's JDK on AIX uses strange locations for the executables
