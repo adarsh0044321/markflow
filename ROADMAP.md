@@ -1,55 +1,185 @@
-# MarkFlow Product Roadmap 🗺️
+# ROADMAP.md
 
-This document outlines the planned development path for **MarkFlow**. Milestones are divided into core pipeline improvements, workflow efficiency features, next-generation machine learning integration, and enterprise cloud dashboards.
-
----
-
-## 📈 Milestone Overview
-
-| Version | Focus Area | Key Initiatives | Target Timeline | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **v1.0.0** | Core Release | Perspective deskew, adaptive binarization, digit OCR, PDF reports | Q2 2026 | **Released** |
-| **v1.1.0** | Precision & Scanner | Robust light-invariant edge tracking, higher OCR resolution matrices | Q3 2026 | **Released** |
-| **v1.2.0** | Batch Evaluation | Folder scanning, multi-page document packages, quick grading templates | Q4 2026 | **Released** |
-| **v2.0.0** | Performance & Evaluation | Camera shutdown on export, annotation toolbox, step marks dialogs, settings overhaul | Q2 2026 | **Released** |
-| **v3.0.0** | Cloud Ecosystem | Real-time teacher dashboards, secure cloud sync, student analytics | Q4 2027 | *Future Vision* |
+Purpose: Defines the future direction of the project.
 
 ---
 
-## 🚀 Detailed Milestones
+# Vision
 
-### 🟢 v1.0.0 — Core Document Assistant (Current)
-*   **Warp Perspective**: Automatic contour tracking and JNI OpenCV perspective correction.
-*   **On-Device OCR & Verification**: Integrated Google ML Kit text blocks parsing combined with a local lightweight TensorFlow Lite digit validator.
-*   **Sensor Alignment Guard**: Real-time accelerometer tilt visualizer enforcing scanner alignment under `10°` to prevent perspective warp artifacts.
-*   **Local Caching**: Robust offline evaluation records stored in an Android Room database.
-*   **Reporting**: Compact iText PDF coversheet and score evidence builder.
-
-### 🟡 v1.1.0 — Scanner Precision & Reliability
-*   **Adaptive Binarization Improvements**: Better shadow-erasing threshold coefficients to handle fluorescent and natural lighting variations.
-*   **Enhanced Contour Math**: RANSAC-like line fitting for torn or dog-eared page boundary calculations.
-*   **OCR Correction Loops**: Double-checking parsed scores against a user-defined max marks limit per question to catch OCR reading errors pre-save.
-
-### 🔵 v1.2.0 — Multi-Page & Batch Evaluation
-*   **Multi-Page Document Packs**: Ability to group multiple page scans under a single student copy rather than single-page evaluations.
-*   **Batch Scanning Mode**: Rapid capture queue that saves images instantly and processes JNI OpenCV warps in a background coroutine pool.
-*   **Excel/CSV Bulk Exports**: Bulk csv and xlsx exports for school database integrations.
-
-### 🔴 v2.0.0 — Performance, Evaluation Toolbox & Manual Review Overhaul (Current)
-*   **Camera Shutdown on Export**: Immediately releases camera session, preview, frame analysis, and ML resources when "Finalize Copy" is tapped. Prevents overheating and battery drain.
-*   **Floating Annotation Toolbox**: 9 one-tap annotation tools (Tick, Cross, Double Tick, Blank Page, Underline, Circle, Pen, Question Number) with size slider and persistent bitmap rendering.
-*   **Sequential Step & Final Marks Dialogs**: Step-by-step mark breakdown with auto-calculated subtotals, override toggle, and strict `0.5` increment validation.
-*   **Settings Screen Overhaul**: Explicit save button, pending state dirty tracking, input validation, and back-navigation confirmation dialog.
-*   **Smart Mark Recognition**: Strict `.5` increment enforcement, max mark bounds checking, and landscape rotation correction for OCR.
-*   **Swipe Navigation**: Horizontal swipe between questions/marks across pages with auto-focus keyboard support.
-*   **Memory Safety**: Bitmap recycling, ML interpreter cleanup, and executor shutdown on composition removal.
-
-### 🟣 v3.0.0 — Centralized Portal & Dashboard
-*   **Secure Cloud Sync**: End-to-end encrypted backup of evaluation sheets and metrics.
-*   **Web Teacher Dashboard**: A modern web-based console allowing evaluators to view cohort statistics from their desktops.
-*   **Advanced Analytics & Cohort Spotlights**: Machine-learning insights identifying common question failure trends across large classes.
+Create the most reliable, offline-first exam evaluation and grading digitizer for teachers, enabling fast, precise red-ink annotation and dynamic aggregate statistics directly on-device with zero network latency.
 
 ---
 
-## 💬 Feedback & Contributions
-If you would like to request a feature or collaborate on our machine-learning models, please open a GitHub Issue or join the discussions tab on our repository!
+# Current Milestone
+
+Milestone:
+v3.0.0
+
+Goal:
+Implement local database encryption and initial designs for secure cloud synchronization.
+
+Status:
+In Progress
+
+Completion:
+10%
+
+---
+
+# Upcoming Milestones
+
+## Milestone: v3.1.0
+
+Target Date:
+2027-06-01
+
+Objectives:
+
+* Real-time local encryption utilizing SQLCipher integration for Room database.
+* End-to-end encrypted backup of evaluation sheets and cohort metrics.
+* Initial prototypes of a secure web teacher dashboard for analytics sync.
+
+Success Criteria:
+
+* Room database is encrypted at rest with zero performance degradation in scanning.
+* Data sync uploads occur seamlessly in the background when connectivity becomes active.
+
+Risks:
+
+* Key management security on Android Keystore across different API levels.
+* Network overhead and sync latency for large multi-page PDF binaries.
+
+---
+
+## Milestone: v4.0.0
+
+Objectives:
+
+* Advanced machine learning statistics identifying common question failure patterns.
+* OCR templates for customizable exam forms.
+
+Dependencies:
+
+* TFLite GPU delegate optimization.
+* OpenCV contour matching for pre-defined box templates.
+
+---
+
+# Feature Backlog
+
+## High Priority
+
+### Batch Scanning Mode
+
+Description:
+A camera capture queue that saves page images instantly and delegates deskewing/OCR to a background coroutine pool, reducing time between page flips.
+
+Expected Impact:
+High
+
+Estimated Complexity:
+High
+
+Dependencies:
+Coroutines, CameraX ImageAnalysis.
+
+---
+
+## Medium Priority
+
+### Excel/CSV Bulk Export Charts
+
+Description:
+Automatically generate summary charts (pie charts, distributions) inside exported spreadsheet report packages.
+
+Expected Impact:
+Medium
+
+Estimated Complexity:
+Medium
+
+Dependencies:
+ReportGenerator, OpenCSV.
+
+---
+
+## Low Priority
+
+### Custom Annotation Ink Colors
+
+Description:
+Allows examiners to pick colors other than red (e.g. green or blue) for annotations.
+
+Expected Impact:
+Low
+
+Estimated Complexity:
+Low
+
+Dependencies:
+PageViewScreen, Compose Canvas.
+
+---
+
+# Technical Debt
+
+## Frame Analyzer Downsampling on API < 30
+
+Description:
+Android 10 devices experience frame drop during real-time contour tracking. The ImageProxy resolution needs to be downsampled dynamically.
+
+Reason:
+CameraX analyzer pipeline processes full-resolution buffers on older GPUs.
+
+Impact:
+Performance
+
+Priority:
+Medium
+
+---
+
+# Research Items
+
+## Room Local Encryption
+
+Questions:
+
+* Does SQLCipher library introduce library conflicts with Hilt/Room on target SDK 35?
+* What is the binary size impact of adding SQLCipher dependency?
+
+Potential Approaches:
+
+* Approach A: Integrate `androidx.sqlite.db.SupportSQLiteDatabase` custom open helper.
+* Approach B: Rely on Android EncryptedFile/EncryptedSharedPreferences for directory paths.
+
+---
+
+# Stretch Goals
+
+* Dark mode manual override toggle.
+* Real-time automated grading suggestions for MCQ regions.
+
+---
+
+# Recently Completed
+
+Move completed roadmap items here.
+
+## 2026-06-23
+
+Completed:
+
+* Lock Gradle wrapper tasks to target JDK 17 to avoid Java 26 environment startup crashes.
+
+Notes:
+Always test scripts against non-default configurations (such as standard environment PATH overrides).
+
+## 2026-06-21
+
+Completed:
+
+* Release v2.0.0: Red Ink Annotation Toolbox, Step and Final Marks Entry dialogs, camera shutdown on finalization.
+
+Notes:
+Bitmap memory pools must be strictly managed to prevent GC OOM exceptions during PDF compilation.
