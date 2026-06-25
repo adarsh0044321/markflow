@@ -31,3 +31,11 @@ TestDownload.java
 # macOS & system files
 .DS_Store
 Thumbs.db
+
+# AI Agent memory files (Local-only)
+BRAIN.md
+ROADMAP.md
+DECISIONS.md
+HANDOVER.md
+SESSION.md
+
