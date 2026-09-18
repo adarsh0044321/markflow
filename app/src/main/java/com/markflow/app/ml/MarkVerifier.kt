@@ -228,9 +228,10 @@ class MarkVerifier @Inject constructor(
             val regionType = classifyRegion(ocrResult.rawText, bb, contour)
 
             // ── Smart Mark Recognition Validation ──
-            // Enforce whole numbers or .5 increments only, and bounds (limitMin to defaultQuestionMaxMarks)
+            // Enforce whole numbers or .5 increments only, and bounds (limitMin to maxAllowed)
+            val maxAllowed = maxOf(limitMax, defaultQuestionMaxMarks)
             val isHalfIncrement = Math.abs(Math.round(finalVal * 2.0) - (finalVal * 2.0)) < 1e-9
-            val isWithinBounds = finalVal >= limitMin && finalVal <= defaultQuestionMaxMarks
+            val isWithinBounds = finalVal >= limitMin && finalVal <= maxAllowed
             val isValValid = isHalfIncrement && isWithinBounds && hasValue
 
             // Detection reason construction

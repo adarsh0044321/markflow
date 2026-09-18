@@ -39,11 +39,16 @@ object BitmapUtils {
         height: Int,
         padding: Int = Constants.EVIDENCE_CROP_PADDING
     ): Bitmap {
-        val left = maxOf(0, x - padding)
-        val top = maxOf(0, y - padding)
-        val right = minOf(bitmap.width, x + width + padding)
-        val bottom = minOf(bitmap.height, y + height + padding)
-        return Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+        if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) {
+            return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        }
+        val left = (x - padding).coerceIn(0, bitmap.width - 1)
+        val top = (y - padding).coerceIn(0, bitmap.height - 1)
+        val right = (x + width + padding).coerceIn(left + 1, bitmap.width)
+        val bottom = (y + height + padding).coerceIn(top + 1, bitmap.height)
+        val cropW = maxOf(1, right - left)
+        val cropH = maxOf(1, bottom - top)
+        return Bitmap.createBitmap(bitmap, left, top, cropW, cropH)
     }
 
     /**

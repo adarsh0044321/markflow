@@ -324,32 +324,33 @@ class ScanRepository @Inject constructor(
             issueDao.insertAll(issues)
         }
 
-        // 11. Create issues for overwritten marks
-        verificationResult.marks.filter { it.isOverwritten }.forEach { mark ->
-            issueDao.insert(
-                IssueEntity(
-                    copyId = copyId,
-                    pageId = pageId,
-                    markId = mark.id,
-                    type = "overwritten_mark",
-                    description = "Mark '${mark.displayValue}' appears overwritten on page $pageNumber",
-                    severity = "warning"
+        // 11. Create issues for overwritten marks and low confidence marks
+        verificationResult.marks.forEachIndexed { idx, mark ->
+            val dbMarkId = (insertedIds.getOrNull(idx) ?: 0L).takeIf { it > 0L }
+            if (mark.isOverwritten) {
+                issueDao.insert(
+                    IssueEntity(
+                        copyId = copyId,
+                        pageId = pageId,
+                        markId = dbMarkId,
+                        type = "overwritten_mark",
+                        description = "Mark '${mark.displayValue}' appears overwritten on page $pageNumber",
+                        severity = "warning"
+                    )
                 )
-            )
-        }
-
-        // 12. Create issues for low confidence marks
-        verificationResult.marks.filter { it.confidence < Constants.CONFIDENCE_REVIEW_THRESHOLD }.forEach { mark ->
-            issueDao.insert(
-                IssueEntity(
-                    copyId = copyId,
-                    pageId = pageId,
-                    markId = mark.id,
-                    type = "low_confidence",
-                    description = "Low confidence detection: '${mark.displayValue}' (${(mark.confidence * 100).toInt()}%)",
-                    severity = "info"
+            }
+            if (mark.confidence < Constants.CONFIDENCE_REVIEW_THRESHOLD) {
+                issueDao.insert(
+                    IssueEntity(
+                        copyId = copyId,
+                        pageId = pageId,
+                        markId = dbMarkId,
+                        type = "low_confidence",
+                        description = "Low confidence detection: '${mark.displayValue}' (${(mark.confidence * 100).toInt()}%)",
+                        severity = "info"
+                    )
                 )
-            )
+            }
         }
 
         // Create issue for page low confidence classification
@@ -722,10 +723,12 @@ class ScanRepository @Inject constructor(
         val copy = copyDao.getCopyById(copyId) ?: return@withContext
         copyDao.update(
             copy.copy(
+                calculatedTotal = newTotal,
                 writtenTotal = newTotal,
                 updatedAt = System.currentTimeMillis()
             )
         )
+        sessionDao.recalculateSessionStats(copy.sessionId)
         
         auditTrailDao.insertAuditTrail(
             AuditTrailEntity(
