@@ -332,17 +332,17 @@ class PageViewViewModel @Inject constructor(
                     }
                 }
                 
-                val out = java.io.FileOutputStream(file)
-                mutableBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-                out.close()
+                java.io.FileOutputStream(file).use { out ->
+                    mutableBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
+                }
 
                 page.value?.thumbnailPath?.let { thumbPath ->
                     try {
                         val thumbFile = java.io.File(thumbPath)
                         val thumbnail = BitmapUtils.createThumbnail(mutableBitmap)
-                        val thumbOut = java.io.FileOutputStream(thumbFile)
-                        thumbnail.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, thumbOut)
-                        thumbOut.close()
+                        java.io.FileOutputStream(thumbFile).use { thumbOut ->
+                            thumbnail.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, thumbOut)
+                        }
                         thumbnail.recycle()
                     } catch (ex: Exception) {
                         ex.printStackTrace()

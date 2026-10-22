@@ -138,7 +138,7 @@ class ReportGenerator @Inject constructor(
                         val completed = completedCount.incrementAndGet()
                         val pct = completed.toFloat() / totalPages
                         val elapsed = System.currentTimeMillis() - startTime
-                        val avgTimePerPage = elapsed / completed.toDouble()
+                        val avgTimePerPage = if (completed > 0) elapsed / completed.toDouble() else 0.0
                         val estRemainingSeconds = ((totalPages - completed) * avgTimePerPage / 1000.0).toInt()
 
                         val shouldContinue = progressListener?.onProgress(
@@ -296,7 +296,7 @@ class ReportGenerator @Inject constructor(
             addHeaderCell(issueTable, "Status", headerFont)
 
             issues.forEach { issue ->
-                val severityColor = if (issue.severity == "error") BaseColor(255, 204, 204) else BaseColor(255, 255, 204)
+                val severityColor = if (issue.severity.lowercase(Locale.US) == "error") BaseColor(255, 204, 204) else BaseColor(255, 255, 204)
                 issueTable.addCell(PdfPCell(Phrase(issue.severity.uppercase(Locale.US), alertFont)).apply {
                     backgroundColor = severityColor
                     setPadding(5f)
@@ -456,7 +456,8 @@ class ReportGenerator @Inject constructor(
         addHeaderCell(statsTable, "Lowest Score", headerFont)
         addHeaderCell(statsTable, "Pass Rate", headerFont)
 
-        val passCount = copies.count { it.calculatedTotal >= session.passThreshold }
+        val passThresholdScore = session.maxMarks * (session.passThreshold / 100.0)
+        val passCount = copies.count { it.calculatedTotal >= passThresholdScore }
         val passPercentage = if (copies.isNotEmpty()) (passCount.toDouble() / copies.size) * 100 else 0.0
 
         statsTable.addCell(PdfPCell(Phrase("${copies.size}", boldFont)).apply { setPadding(6f); horizontalAlignment = Element.ALIGN_CENTER })
@@ -540,7 +541,8 @@ class ReportGenerator @Inject constructor(
         row.createCell(0).apply { setCellValue("Metric"); setCellStyle(headerStyle) }
         row.createCell(1).apply { setCellValue("Value"); setCellStyle(headerStyle) }
 
-        val passCount = copies.count { it.calculatedTotal >= session.passThreshold }
+        val passThresholdScore = session.maxMarks * (session.passThreshold / 100.0)
+        val passCount = copies.count { it.calculatedTotal >= passThresholdScore }
         val passPercentage = if (copies.isNotEmpty()) (passCount.toDouble() / copies.size) * 100 else 0.0
 
         val statsMap = linkedMapOf(
@@ -549,7 +551,7 @@ class ReportGenerator @Inject constructor(
             "Class Average Marks" to session.averageMarks,
             "Highest Marks" to session.highestMarks,
             "Lowest Marks" to session.lowestMarks,
-            "Pass Threshold" to session.passThreshold,
+            "Pass Threshold" to "${session.passThreshold}% (${String.format(Locale.US, "%.1f", passThresholdScore)} marks)",
             "Pass Rate" to String.format(Locale.US, "%.1f%%", passPercentage),
             "Generation Date" to dateFormat.format(Date())
         )

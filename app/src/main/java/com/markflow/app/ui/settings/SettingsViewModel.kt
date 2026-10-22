@@ -1,16 +1,22 @@
 package com.markflow.app.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.markflow.app.data.local.MarkFlowDatabase
 import com.markflow.app.data.repository.SettingsRepository
+import com.markflow.app.util.FileUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val database: MarkFlowDatabase,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     // ── Database flows ──
@@ -177,5 +183,19 @@ class SettingsViewModel @Inject constructor(
         uiPassThreshold.value = passThresholdVal.value
         uiMarkRecognitionLimitMin.value = markRecognitionLimitMinVal.value
         uiMarkRecognitionLimitMax.value = markRecognitionLimitMaxVal.value
+    }
+
+    fun clearAllData(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                // Clear SQLite Database tables
+                database.clearAllTables()
+                // Recursively delete all saved bitmap assets
+                FileUtils.getAppStorageDir(context).deleteRecursively()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            onComplete()
+        }
     }
 }

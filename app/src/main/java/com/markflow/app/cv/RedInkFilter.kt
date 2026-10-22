@@ -84,8 +84,8 @@ class RedInkFilter @Inject constructor(
             val hueScaled = hue / 2.0
 
             val isRed = (
-                (hueScaled in Constants.RED_HUE_LOW_1..Constants.RED_HUE_HIGH_1 ||
-                 hueScaled in Constants.RED_HUE_LOW_2..Constants.RED_HUE_HIGH_2) &&
+                (hueScaled in (Constants.RED_HUE_LOW_1 - 3.0)..(Constants.RED_HUE_HIGH_1 + 3.0) ||
+                 hueScaled in (Constants.RED_HUE_LOW_2 - 3.0)..(Constants.RED_HUE_HIGH_2 + 3.0)) &&
                 sat >= baseSat &&
                 value >= baseVal
             )
@@ -98,10 +98,12 @@ class RedInkFilter @Inject constructor(
             }
         }
 
-        mask.setPixels(maskPixels, 0, width, 0, 0, width, height)
+        val lineFreePixels = removeLines(maskPixels, width, height)
+        mask.setPixels(lineFreePixels, 0, width, 0, 0, width, height)
 
         // Apply simple morphological cleanup (dilate then erode to fill gaps)
         val cleanedMask = morphologicalClean(mask, width, height)
+        mask.recycle()
 
         return RedInkResult(
             mask = cleanedMask,
@@ -136,8 +138,26 @@ class RedInkFilter @Inject constructor(
             }
         }
 
+        // Erosion (3x3 kernel) — shrink back white regions to remove isolated noise points
+        val eroded = IntArray(width * height)
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                var allWhite = true
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        if (dilated[(y + dy) * width + (x + dx)] == Color.BLACK) {
+                            allWhite = false
+                            break
+                        }
+                    }
+                    if (!allWhite) break
+                }
+                eroded[y * width + x] = if (allWhite) Color.WHITE else Color.BLACK
+            }
+        }
+
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        result.setPixels(dilated, 0, width, 0, 0, width, height)
+        result.setPixels(eroded, 0, width, 0, 0, width, height)
         return result
     }
 
@@ -204,8 +224,8 @@ class RedInkFilter @Inject constructor(
             val value = hsv[2] * 100
 
             val isRed = (
-                (hueScaled in Constants.RED_HUE_LOW_1..Constants.RED_HUE_HIGH_1 ||
-                 hueScaled in Constants.RED_HUE_LOW_2..Constants.RED_HUE_HIGH_2) &&
+                (hueScaled in (Constants.RED_HUE_LOW_1 - 3.0)..(Constants.RED_HUE_HIGH_1 + 3.0) ||
+                 hueScaled in (Constants.RED_HUE_LOW_2 - 3.0)..(Constants.RED_HUE_HIGH_2 + 3.0)) &&
                 sat >= satMin && value >= valMin
             )
 
@@ -217,13 +237,67 @@ class RedInkFilter @Inject constructor(
             }
         }
 
-        mask.setPixels(maskPixels, 0, width, 0, 0, width, height)
+        val lineFreePixels = removeLines(maskPixels, width, height)
+        mask.setPixels(lineFreePixels, 0, width, 0, 0, width, height)
         val cleanedMask = morphologicalClean(mask, width, height)
+        mask.recycle()
 
         return RedInkResult(
             mask = cleanedMask,
             redPixelCount = redCount,
             redRatio = redCount.toDouble() / (width * height)
         )
+    }
+
+    /**
+     * Subtract straight horizontal and vertical lines (e.g. table grids or margin boundaries).
+     * Prevents printed borders from corrupting contour flood-fills.
+     */
+    private fun removeLines(pixels: IntArray, width: Int, height: Int): IntArray {
+        val result = pixels.clone()
+        val minLineLength = 80 // pixels
+
+        // Remove horizontal lines
+        for (y in 0 until height) {
+            var x = 0
+            while (x < width) {
+                if (pixels[y * width + x] == Color.WHITE) {
+                    var len = 0
+                    while (x + len < width && pixels[y * width + (x + len)] == Color.WHITE) {
+                        len++
+                    }
+                    if (len >= minLineLength) {
+                        for (dx in 0 until len) {
+                            result[y * width + (x + dx)] = Color.BLACK
+                        }
+                    }
+                    x += len
+                } else {
+                    x++
+                }
+            }
+        }
+
+        // Remove vertical lines
+        for (x in 0 until width) {
+            var y = 0
+            while (y < height) {
+                if (pixels[y * width + x] == Color.WHITE) {
+                    var len = 0
+                    while (y + len < height && pixels[(y + len) * width + x] == Color.WHITE) {
+                        len++
+                    }
+                    if (len >= minLineLength) {
+                        for (dy in 0 until len) {
+                            result[(y + dy) * width + x] = Color.BLACK
+                        }
+                    }
+                    y += len
+                } else {
+                    y++
+                }
+            }
+        }
+        return result
     }
 }

@@ -85,7 +85,7 @@ class OcrProcessor @Inject constructor() {
             when (mapped) {
                 "S", "s" -> return "5"
                 "O", "o" -> return "0"
-                "I", "l", "|", "i" -> return "1"
+                "I", "l", "|", "i", "T", "t" -> return "1"
                 "Z", "z" -> return "2"
                 "B" -> return "8"
                 "g", "q" -> return "9"
@@ -98,7 +98,7 @@ class OcrProcessor @Inject constructor() {
         // For multi-character strings, check if all characters are valid digits, slashes, dots,
         // whitespace, or common confusion characters. If so, map all of them.
         val isAllConfusionChars = mapped.all { 
-            it.isDigit() || it == '/' || it == '.' || it.isWhitespace() || it in "oOiIl|iszZBgqbTeEaAHhfF" 
+            it.isDigit() || it == '/' || it == '.' || it.isWhitespace() || it in "oOiIl|iszZBgqbTteEaAHhfF" 
         }
         if (isAllConfusionChars) {
             val sb = StringBuilder()
@@ -243,7 +243,7 @@ class OcrProcessor @Inject constructor() {
         return if (this == this.toLong().toDouble()) {
             this.toLong().toString()
         } else {
-            this.toString()
+            String.format(java.util.Locale.US, "%.1f", this)
         }
     }
 

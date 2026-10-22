@@ -648,8 +648,13 @@ class ScanViewModel @Inject constructor(
                 )}
                 nextList
             }
-            if (_activeReviewPageIndex.value == index) {
-                _activeReviewPageIndex.value = if (list.size <= 1) null else minOf(index, list.size - 2)
+            val currentActiveIndex = _activeReviewPageIndex.value
+            if (currentActiveIndex != null) {
+                if (currentActiveIndex == index) {
+                    _activeReviewPageIndex.value = if (list.size <= 1) null else minOf(index, list.size - 2)
+                } else if (currentActiveIndex > index) {
+                    _activeReviewPageIndex.value = currentActiveIndex - 1
+                }
             }
         }
     }
@@ -797,7 +802,6 @@ class ScanViewModel @Inject constructor(
         _liveCorners.value = null
         _liveCornersSize.value = null
         _cropState.value = null
-        digitRecognizer.close()
 
         viewModelScope.launch {
             _showFinalizeProgress.value = true
@@ -811,8 +815,9 @@ class ScanViewModel @Inject constructor(
 
                 while (true) {
                     val currentList = _capturedPages.value
-                    val unprocessedCount = currentList.count { !it.isProcessed }
-                    if (unprocessedCount == 0) {
+                    val hasError = currentList.any { it.error != null }
+                    val unprocessedCount = currentList.count { !it.isProcessed && it.error == null }
+                    if (hasError || unprocessedCount == 0) {
                         break
                     }
                     _finalizeProgressMessage.value = "Finalizing: $unprocessedCount pages remaining..."
@@ -885,6 +890,7 @@ class ScanViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         pageChangeDetector.reset()
+        digitRecognizer.close()
         // Clean up any remaining temp files in cache
         _capturedPages.value.forEach { page ->
             try {

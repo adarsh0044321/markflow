@@ -61,11 +61,11 @@ interface CopyDao {
 
     @Query("""
         UPDATE copies SET 
-            calculatedTotal = COALESCE((SELECT SUM(value) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited')), 0),
-            markCount = (SELECT COUNT(*) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited', 'needs_review')),
+            calculatedTotal = COALESCE((SELECT SUM(value) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited') AND regionType = 'awarded_mark'), 0),
+            markCount = (SELECT COUNT(*) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited', 'needs_review') AND regionType = 'awarded_mark'),
             pageCount = (SELECT COUNT(*) FROM pages WHERE copyId = :copyId),
-            overallConfidence = COALESCE((SELECT AVG(confidence) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited')), 0),
-            reviewCount = (SELECT COUNT(*) FROM marks WHERE copyId = :copyId AND status = 'needs_review'),
+            overallConfidence = COALESCE((SELECT AVG(confidence) FROM marks WHERE copyId = :copyId AND status IN ('confirmed', 'edited') AND regionType = 'awarded_mark'), 0),
+            reviewCount = (SELECT COUNT(*) FROM marks WHERE copyId = :copyId AND status = 'needs_review' AND regionType = 'awarded_mark'),
             updatedAt = :timestamp
         WHERE id = :copyId
     """)

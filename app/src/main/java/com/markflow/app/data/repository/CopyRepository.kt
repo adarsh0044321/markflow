@@ -66,6 +66,7 @@ class CopyRepository @Inject constructor(
     suspend fun deleteCopy(copyId: Long) {
         val copy = copyDao.getCopyById(copyId) ?: return
         copyDao.delete(copy)
+        sessionDao.recalculateSessionStats(copy.sessionId)
     }
 
     // ── Pages ──

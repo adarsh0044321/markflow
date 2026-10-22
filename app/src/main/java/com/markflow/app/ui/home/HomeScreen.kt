@@ -341,7 +341,8 @@ private fun FolderCard(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -360,17 +361,40 @@ private fun FolderCard(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = "${folder.copyCount} Copies | Avg: ${String.format(Locale.US, "%.1f", folder.averageMarks)} M",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${folder.copyCount} copies",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), CircleShape)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Avg: ",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = String.format(Locale.US, "%.1f", folder.averageMarks),
+                            style = TabularNumbers.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.size(14.dp)
             )
         }
     }
@@ -390,36 +414,74 @@ private fun ClassDetailsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Class Folder Details") },
+        title = {
+            Text(
+                text = "Class Folder Details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Class / Folder Name (e.g. Maths 10A)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = maxMarks,
-                    onValueChange = { newValue ->
-                        maxMarks = newValue.filter { it.isDigit() }
-                    },
-                    label = { Text("Maximum Marks") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = passThreshold,
-                    onValueChange = { newValue ->
-                        passThreshold = newValue.filter { it.isDigit() }
-                    },
-                    label = { Text("Passing Threshold (%)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                // Input 1: Class Name
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Class / Folder Name",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text("e.g. Mathematics 10-A") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+
+                // Input 2: Max Marks
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Maximum Marks",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = maxMarks,
+                        onValueChange = { newValue ->
+                            maxMarks = newValue.filter { it.isDigit() }
+                        },
+                        placeholder = { Text("e.g. 100") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+
+                // Input 3: Passing Threshold
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Passing Threshold (%)",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = passThreshold,
+                        onValueChange = { newValue ->
+                            passThreshold = newValue.filter { it.isDigit() }
+                        },
+                        placeholder = { Text("e.g. 33") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -430,7 +492,8 @@ private fun ClassDetailsDialog(
                     if (name.isNotBlank()) {
                         onConfirm(name, maxM, passT)
                     }
-                }
+                },
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Confirm")
             }
@@ -470,16 +533,17 @@ private fun FolderDetailDialog(
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onAddCopy) {
-                    Icon(Icons.Filled.Add, "Add Copy", tint = MarkFlowGreen)
+                    Icon(Icons.Filled.Add, "Add Copy", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                // Folder Stats Overview Card
+                // Folder Stats Overview Card - Flat Border and Clean Monospace Numbers
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -488,18 +552,18 @@ private fun FolderDetailDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Copies", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text("${copies.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Copies", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${copies.size}", style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Class Avg", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(String.format(Locale.US, "%.1f", session.averageMarks), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Class Avg", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(String.format(Locale.US, "%.1f", session.averageMarks), style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                         }
                         val passCount = copies.count { it.calculatedTotal >= session.maxMarks * (session.passThreshold / 100.0) }
                         val passPct = if (copies.isNotEmpty()) (passCount.toDouble() / copies.size) * 100.0 else 0.0
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Pass Rate", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(String.format(Locale.US, "%.0f%%", passPct), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Pass Rate", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(String.format(Locale.US, "%.0f%%", passPct), style = TabularNumbers.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -522,7 +586,9 @@ private fun FolderDetailDialog(
                             val isPassed = copy.calculatedTotal >= session.maxMarks * (session.passThreshold / 100.0)
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(8.dp),
@@ -534,17 +600,38 @@ private fun FolderDetailDialog(
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.bodyMedium
                                         )
-                                        Text(
-                                            text = "Roll: ${copy.rollNumber ?: "N/A"} | Marks: ${copy.calculatedTotal}/${session.maxMarks}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "Roll: ",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = copy.rollNumber ?: "N/A",
+                                                style = TabularNumbers.copy(fontSize = 12.sp, fontWeight = FontWeight.Normal),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = " | Marks: ",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "${copy.calculatedTotal.toMarksString()}/${session.maxMarks.toMarksString()}",
+                                                style = TabularNumbers.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
 
                                     // Pass / Fail Badge
                                     Surface(
                                         shape = RoundedCornerShape(4.dp),
-                                        color = if (isPassed) MarkFlowGreen.copy(alpha = 0.15f) else StatusError.copy(alpha = 0.15f),
+                                        color = if (isPassed) MarkFlowGreenSurface else StatusError.copy(alpha = 0.08f),
                                         modifier = Modifier.padding(end = 4.dp)
                                     ) {
                                         Text(
@@ -577,7 +664,8 @@ private fun FolderDetailDialog(
             ) {
                 Button(
                     onClick = onGenerateReport,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Filled.PictureAsPdf, null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -602,30 +690,58 @@ private fun EditCopyDetailsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Student Details") },
+        title = {
+            Text(
+                text = "Edit Student Details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Student Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = roll,
-                    onValueChange = { roll = it },
-                    label = { Text("Roll Number") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                // Input 1: Student Name
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Student Name",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text("e.g. Eleanor Vance") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+
+                // Input 2: Roll Number
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Roll Number",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = roll,
+                        onValueChange = { roll = it },
+                        placeholder = { Text("e.g. 2026-4402") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     onConfirm(name, roll)
-                }
+                },
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Save")
             }
@@ -644,76 +760,72 @@ private fun StartScanCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(enabled = !isLoading) { onClick() },
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        onClick = { if (!isLoading) onClick() },
         shape = RoundedCornerShape(16.dp),
-        color = Color.Transparent
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(MarkFlowGreen, MarkFlowGreenDark)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .padding(20.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DocumentScanner,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.DocumentScanner,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Start New Scan",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "New Scanning Session",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Scan answer copies and calculate marks",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                            contentDescription = "Start",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .size(20.dp)
-                        )
-                    }
-                }
+            }
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = "Start",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
@@ -846,7 +958,7 @@ private fun RecentCopyItem(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier
@@ -863,8 +975,7 @@ private fun RecentCopyItem(
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Text(
                         text = copy.calculatedTotal.toMarksString(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = TabularNumbers.copy(fontSize = 14.sp),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -894,13 +1005,12 @@ private fun RecentCopyItem(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = copy.calculatedTotal.toMarksString(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = TabularNumbers.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "/100",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = TabularNumbers.copy(fontSize = 12.sp, fontWeight = FontWeight.Normal),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 2.dp)
                     )

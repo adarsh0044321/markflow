@@ -2,6 +2,7 @@ package com.markflow.app.ui.settings
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +53,10 @@ fun SettingsScreen(
     val hasUnsavedChanges by viewModel.hasUnsavedChanges.collectAsStateWithLifecycle()
 
     // Validation
-    val maxMarksError = maxMarks.toDoubleOrNull() == null || maxMarks.toDouble() <= 0 || maxMarks.toDouble() > 1000
-    val defaultQuestionMarksError = defaultQuestionMarks.toDoubleOrNull() == null || defaultQuestionMarks.toDouble() <= 0 || defaultQuestionMarks.toDouble() > 100
+    val maxMarksVal = maxMarks.toDoubleOrNull()
+    val defaultQuestionMarksVal = defaultQuestionMarks.toDoubleOrNull()
+    val maxMarksError = maxMarksVal == null || maxMarksVal <= 0 || maxMarksVal > 1000
+    val defaultQuestionMarksError = defaultQuestionMarksVal == null || defaultQuestionMarksVal <= 0 || defaultQuestionMarksVal > 100 || (maxMarksVal != null && defaultQuestionMarksVal > maxMarksVal)
     val passThresholdError = passThreshold.toDoubleOrNull() == null || passThreshold.toDouble() < 0 || passThreshold.toDouble() > 100
     val markSensitivityError = markSensitivity.toDoubleOrNull() == null || markSensitivity.toDouble() < 0 || markSensitivity.toDouble() > 100
     
@@ -65,6 +68,7 @@ fun SettingsScreen(
     val isSaveEnabled = hasUnsavedChanges && !isAnyError
 
     var showExitConfirmation by remember { mutableStateOf(false) }
+    var showClearDataConfirmation by remember { mutableStateOf(false) }
 
     // Intercept Back Press
     BackHandler {
@@ -106,6 +110,34 @@ fun SettingsScreen(
                     TextButton(onClick = { showExitConfirmation = false }) {
                         Text("Cancel")
                     }
+                }
+            }
+        )
+    }
+
+    if (showClearDataConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearDataConfirmation = false },
+            title = { Text("Clear All Data") },
+            text = { Text("Are you sure you want to permanently delete all scanned sessions, student copies, evidence crops, and generated reports? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearDataConfirmation = false
+                        viewModel.clearAllData {
+                            Toast.makeText(context, "All data cleared successfully", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete Everything")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDataConfirmation = false }) {
+                    Text("Cancel")
                 }
             }
         )
@@ -337,7 +369,7 @@ fun SettingsScreen(
                     value = defaultQuestionMarks,
                     onValueChange = { viewModel.updateDefaultQuestionMarks(it) },
                     isError = defaultQuestionMarksError,
-                    errorMessage = "Must be positive (max 100)"
+                    errorMessage = "Must be positive, max 100, and cannot exceed Maximum Marks"
                 )
             }
 
@@ -474,7 +506,8 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Outlined.DeleteSweep,
                     title = "Clear All Data",
-                    subtitle = "Delete all scanned copies and reports"
+                    subtitle = "Delete all scanned copies and reports",
+                    onClick = { showClearDataConfirmation = true }
                 )
             }
 
@@ -584,13 +617,14 @@ private fun SettingsTextField(
 private fun SettingsItem(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: () -> Unit = {}
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),

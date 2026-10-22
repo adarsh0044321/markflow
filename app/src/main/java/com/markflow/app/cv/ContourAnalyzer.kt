@@ -149,7 +149,10 @@ class ContourAnalyzer @Inject constructor() {
 
         val merged = mutableListOf<ContourRegion>()
         val used = BooleanArray(regions.size)
-        val proximityThreshold = (imageWidth * 0.05).toInt() // 5% of image width
+        
+        // Custom directional thresholds based on image dimensions
+        val thresholdX = (imageWidth * 0.035).toInt() // 3.5% of width for horizontal grouping
+        val thresholdY = (imageHeight * 0.025).toInt() // 2.5% of height for vertical grouping
 
         for (i in regions.indices) {
             if (used[i]) continue
@@ -162,7 +165,7 @@ class ContourAnalyzer @Inject constructor() {
 
                 // Check if regions are close enough to be part of the same mark (transitive grouping)
                 val closeToAny = group.any { member ->
-                    areClose(member.boundingBox, regions[j].boundingBox, proximityThreshold)
+                    areClose(member.boundingBox, regions[j].boundingBox, thresholdX, thresholdY)
                 }
                 if (closeToAny) {
                     group.add(regions[j])
@@ -201,25 +204,36 @@ class ContourAnalyzer @Inject constructor() {
     }
 
     /**
-     * Check if two bounding boxes are close enough to be part of the same mark.
+     * Compute horizontal and vertical edge-to-edge distance between two bounding boxes.
      */
-    private fun areClose(a: BoundingBox, b: BoundingBox, threshold: Int): Boolean {
-        // Check for overlap first (enclosed or overlapping bounding boxes)
-        val overlapX = maxOf(0, minOf(a.x + a.width, b.x + b.width) - maxOf(a.x, b.x))
-        val overlapY = maxOf(0, minOf(a.y + a.height, b.y + b.height) - maxOf(a.y, b.y))
-        if (overlapX > 0 && overlapY > 0) return true
+    private fun edgeDistance(a: BoundingBox, b: BoundingBox): Pair<Int, Int> {
+        val dx = when {
+            a.x + a.width < b.x -> b.x - (a.x + a.width)
+            b.x + b.width < a.x -> a.x - (b.x + b.width)
+            else -> 0
+        }
+        val dy = when {
+            a.y + a.height < b.y -> b.y - (a.y + a.height)
+            b.y + b.height < a.y -> a.y - (b.y + b.height)
+            else -> 0
+        }
+        return dx to dy
+    }
 
-        val aCenterX = a.x + a.width / 2
-        val aCenterY = a.y + a.height / 2
-        val bCenterX = b.x + b.width / 2
-        val bCenterY = b.y + b.height / 2
+    /**
+     * Check if two bounding boxes are close enough horizontally or vertically to be part of the same mark.
+     */
+    private fun areClose(a: BoundingBox, b: BoundingBox, thresholdX: Int, thresholdY: Int): Boolean {
+        val (dx, dy) = edgeDistance(a, b)
+        if (dx == 0 && dy == 0) return true
 
-        val dx = kotlin.math.abs(aCenterX - bCenterX)
-        val dy = kotlin.math.abs(aCenterY - bCenterY)
+        // Horizontal proximity: horizontally close and vertically aligned/overlapping
+        val isHorizontalClose = dx < thresholdX && dy < (minOf(a.height, b.height) * 0.8).toInt()
 
-        // Close horizontally (multi-digit) or vertically (fraction)
-        return (dx < threshold && dy < threshold * 2) ||
-               (dy < threshold && dx < threshold * 2)
+        // Vertical proximity: vertically close and horizontally aligned/overlapping
+        val isVerticalClose = dy < thresholdY && dx < (minOf(a.width, b.width) * 0.8).toInt()
+
+        return isHorizontalClose || isVerticalClose
     }
 
     /**

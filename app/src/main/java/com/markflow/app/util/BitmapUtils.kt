@@ -22,7 +22,7 @@ object BitmapUtils {
         val width = bitmap.width
         val height = bitmap.height
         val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
-        if (ratio >= 1f) return bitmap
+        if (ratio >= 1f) return bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, true)
         val newWidth = (width * ratio).toInt()
         val newHeight = (height * ratio).toInt()
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
@@ -39,11 +39,16 @@ object BitmapUtils {
         height: Int,
         padding: Int = Constants.EVIDENCE_CROP_PADDING
     ): Bitmap {
-        val left = maxOf(0, x - padding)
-        val top = maxOf(0, y - padding)
-        val right = minOf(bitmap.width, x + width + padding)
-        val bottom = minOf(bitmap.height, y + height + padding)
-        return Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+        if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) {
+            return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        }
+        val left = (x - padding).coerceIn(0, bitmap.width - 1)
+        val top = (y - padding).coerceIn(0, bitmap.height - 1)
+        val right = (x + width + padding).coerceIn(left + 1, bitmap.width)
+        val bottom = (y + height + padding).coerceIn(top + 1, bitmap.height)
+        val cropW = maxOf(1, right - left)
+        val cropH = maxOf(1, bottom - top)
+        return Bitmap.createBitmap(bitmap, left, top, cropW, cropH)
     }
 
     /**
@@ -163,12 +168,14 @@ object BitmapUtils {
                 ExifInterface.TAG_ORIENTATION,
                 ExifInterface.ORIENTATION_NORMAL
             )
-            val matrix = Matrix()
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            val angle = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
             }
+            if (angle == 0f) return bitmap
+            val matrix = Matrix().apply { postRotate(angle) }
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         } catch (e: Exception) {
             bitmap

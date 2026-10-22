@@ -38,6 +38,11 @@ interface SessionDao {
             averageMarks = COALESCE((SELECT AVG(calculatedTotal) FROM copies WHERE sessionId = :sessionId AND pageCount > 0), 0),
             highestMarks = COALESCE((SELECT MAX(calculatedTotal) FROM copies WHERE sessionId = :sessionId AND pageCount > 0), 0),
             lowestMarks = COALESCE((SELECT MIN(calculatedTotal) FROM copies WHERE sessionId = :sessionId AND pageCount > 0), 0),
+            passPercentage = COALESCE(
+                (SELECT (CAST(COUNT(CASE WHEN calculatedTotal >= (sessions.maxMarks * sessions.passThreshold / 100.0) THEN 1 END) AS REAL) * 100.0) / NULLIF(COUNT(*), 0)
+                 FROM copies WHERE sessionId = :sessionId AND pageCount > 0),
+                0.0
+            ),
             updatedAt = :timestamp
         WHERE id = :sessionId
     """)

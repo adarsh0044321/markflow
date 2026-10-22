@@ -38,6 +38,7 @@ class DuplicateDetector @Inject constructor() {
         small.getPixels(pixels, 0, size, 0, 0, size, size)
         small.recycle()
         val currentGrays = getGrayscales(pixels)
+        val currentAvg = currentGrays.average()
 
         var highestConfidence = 0.0
         var bestMatchPageId: Long? = null
@@ -52,7 +53,7 @@ class DuplicateDetector @Inject constructor() {
             // Stage 2: Image Similarity Score (Pearson Correlation)
             val existingGrays = pageGrayscales[pageId]
             val imageSimilarity = if (existingGrays != null) {
-                computePearsonCorrelation(currentGrays, existingGrays)
+                computePearsonCorrelation(currentGrays, currentAvg, existingGrays)
             } else {
                 0.0
             }
@@ -103,8 +104,7 @@ class DuplicateDetector @Inject constructor() {
         return grays
     }
 
-    private fun computePearsonCorrelation(grays1: DoubleArray, grays2: DoubleArray): Double {
-        val avg1 = grays1.average()
+    private fun computePearsonCorrelation(grays1: DoubleArray, avg1: Double, grays2: DoubleArray): Double {
         val avg2 = grays2.average()
 
         var num = 0.0
@@ -125,7 +125,6 @@ class DuplicateDetector @Inject constructor() {
     private fun calculateOcrSimilarity(text1: String, text2: String): Double {
         val words1 = text1.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.toSet()
         val words2 = text2.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.toSet()
-        if (words1.isEmpty() && words2.isEmpty()) return 1.0
         if (words1.isEmpty() || words2.isEmpty()) return 0.0
         val intersection = words1.intersect(words2).size
         val union = words1.union(words2).size
